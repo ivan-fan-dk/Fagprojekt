@@ -5,8 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Generate dataset
-N = 100
-X = np.linspace(-15, 15, N)
+N = 1000
+X = np.linspace(-30, 30, N)
 y = np.sin(X)*X+np.cos(X)
 #y = X**3+X**2
 
@@ -63,7 +63,7 @@ with torch.no_grad():
 # Convert predictions and input data back to numpy for visualization
 predictions = predictions.numpy()
 
-X = np.linspace(-15, 15, N)
+X = np.linspace(-30, 30, N)
 y = np.sin(X)*X+np.cos(X)
 #y = X**3+X**2
 
@@ -73,5 +73,24 @@ plt.scatter(X, y, label='Actual Data', color="green")
 #plt.scatter(k, g, label="Actual Function", color="grey")
 plt.plot(X, predictions, label='Predictions', color='red')
 
+plt.legend()
+plt.show()
+
+## Testing outside the data scope
+# Generate new data points outside the training range
+new_X = np.linspace(-50, 50, 200)
+new_X_tensor = torch.tensor(new_X, dtype=torch.float32).view(-1, 1)
+
+# Make predictions for the new data points
+with torch.no_grad():
+    new_predictions = model(new_X_tensor)
+
+# Convert predictions and input data back to numpy for visualization
+new_predictions = new_predictions.numpy()
+
+# Visualize the results, including the predictions for new data points
+plt.scatter(X, y, label='Training Data')
+plt.plot(X, predictions, label='Predictions on Training Data', color='red')
+plt.plot(new_X, new_predictions, label='Predictions on New Data', linestyle='dashed', color='green')
 plt.legend()
 plt.show()
