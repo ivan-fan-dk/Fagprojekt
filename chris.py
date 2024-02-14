@@ -94,3 +94,46 @@ plt.plot(X, predictions, label='Predictions on Training Data', color='red')
 plt.plot(new_X, new_predictions, label='Predictions on New Data', linestyle='dashed', color='green')
 plt.legend()
 plt.show()
+
+
+## Automatic differentiation
+
+import torch
+from torch.autograd import Variable
+import numpy as np
+
+# Define a range of x values
+x_values = torch.arange(-15, 15, step=0.1, dtype=torch.float32)
+
+# Create an empty list to store y values
+y_values = []
+
+# Perform automatic differentiation for each x value
+for x_val in x_values:
+    # Define a variable with requires_grad=True
+    x = Variable(torch.tensor([x_val]), requires_grad=True)
+    
+    # Define a mathematical expression
+    y = torch.sin(2*x)+torch.cos(x)
+    
+    # Compute the gradient
+    y.backward()
+    
+    # Append the y value to the list
+    y_values.append(x.grad.item())
+
+# Print the list of y values
+print("List of y values:", y_values)
+
+
+# Define the function y = x^2 + 3x + 1
+y_func = lambda x: 2*torch.cos(2*x)-torch.sin(x)
+
+# Calculate y values for each x
+y_values_func = [y_func(x) for x in x_values]
+
+
+plt.scatter(x_values.detach().numpy(), y_values, label='Actual Data')
+plt.plot(x_values.detach().numpy(), y_values_func, label='Predictions', color='red')
+plt.legend()
+plt.show()
