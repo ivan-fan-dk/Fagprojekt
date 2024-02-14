@@ -4,7 +4,8 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import functions as fc
-X,y = fc.data(lambda x,: np.sin(x)*x+np.cos(x),0,10,100)
+
+X,y = fc.data1D(lambda x,: np.sin(x)*x+np.cos(x),0,10,100)
 
 class NeuralNetwork(nn.Module):
     def __init__(self):
