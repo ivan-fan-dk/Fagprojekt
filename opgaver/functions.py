@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
+import functions.py as fc
 
 def f(f, N, lower_bound, upper_bound):
     """
