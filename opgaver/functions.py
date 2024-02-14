@@ -9,9 +9,7 @@ def data1D(f, lower_bound, upper_bound,N):
     output: return labels y
     """
     X = np.linspace(lower_bound, upper_bound, N)
-    print(X)
     y = f(X)
-    print(y)
     return torch.tensor(X, dtype=torch.float32).view(-1, 1), torch.tensor(y, dtype=torch.float32).view(-1, 1)
 
 def data(f, lower_bound, upper_bound,N,inputdims):
@@ -24,8 +22,6 @@ def data(f, lower_bound, upper_bound,N,inputdims):
     Y = []
     for i in range(inputdims-1):
         Y.append(np.linspace(lower_bound, upper_bound, N))
-    print(len(Y))
-    print(X)
     if inputdims == 1:
         z = f(X)
         return torch.tensor(X, dtype=torch.float32).view(-1, 1), torch.tensor(z, dtype=torch.float32).view(-1, 1)
@@ -41,11 +37,11 @@ def data(f, lower_bound, upper_bound,N,inputdims):
     elif inputdims == 5: 
         z = f(X,Y[0],Y[1],Y[2],Y[3])
         return torch.tensor(X, dtype=torch.float32).view(-1, 1),torch.tensor(Y[0], dtype=torch.float32).view(-1, 1),torch.tensor(Y[1], dtype=torch.float32).view(-1, 1),torch.tensor(Y[2], dtype=torch.float32).view(-1, 1),torch.tensor(Y[3], dtype=torch.float32).view(-1, 1),torch.tensor(z, dtype=torch.float32).view(-1, 1)
-    else: return print("Dim not supported")
+    else:
+        return print("Dim not supported")
 
  
 X0,X1,X2,X3,z = data(lambda x0,x1,x2,x3: np.sin(x0)*x1+np.cos(x2)+x3,0,10,100,4)
-print(z)
 
 # X = torch.tensor(X, dtype=torch.float32).view(-1, 1)
 # y = torch.tensor(y, dtype=torch.float32).view(-1, 1)
