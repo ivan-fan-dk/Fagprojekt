@@ -10,8 +10,9 @@ X = np.linspace(-30, 30, N)
 y = np.sin(X)*X+np.cos(X)
 #y = X**3+X**2
 
-X = torch.tensor(X, dtype=torch.float32).view(-1, 1)
+X = torch.tensor(X, dtype=torch.float32).view(-1, 1)    
 y = torch.tensor(y, dtype=torch.float32).view(-1, 1)
+
 
 # Define the neural network
 class NeuralNetwork(nn.Module):
