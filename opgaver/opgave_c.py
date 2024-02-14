@@ -38,7 +38,7 @@ criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # Training the model
-num_epochs = 2000
+num_epochs = 20000
 for epoch in range(num_epochs):
     # Forward pass
     outputs = model(X)
