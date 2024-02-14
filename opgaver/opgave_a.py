@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import functions as fc
-X,y = fc.data(lambda x,: np.sin(x)*x+np.cos(x),0,10,100)
+X,y = fc.data(lambda x,: np.sin(x)*x+np.cos(x),0,10,100,1)
 
 class NeuralNetwork(nn.Module):
     def __init__(self):
@@ -30,7 +30,7 @@ criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # Training the model
-num_epochs = 20000
+num_epochs = 2000
 for epoch in range(num_epochs):
     # Forward pass
     outputs = model(X)
@@ -42,10 +42,18 @@ for epoch in range(num_epochs):
     optimizer.step()
 
     if (epoch + 1) % 10 == 0:
-        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
+        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}', end='\r')
 
 # Evaluate the model
 with torch.no_grad():
     predictions = model(X)
     loss = criterion(predictions, y)
     print(f"Mean Squared Error on test data: {loss.item():.4f}")
+
+# Visualize the results
+plt.scatter(X, y, label='Actual Data', color="green")
+#plt.scatter(k, g, label="Actual Function", color="grey")
+plt.plot(X, predictions, label='Predictions', color='red')
+
+plt.legend()
+plt.savefig("opgaver/_static/a)_plot.png")
