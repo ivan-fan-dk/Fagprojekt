@@ -63,10 +63,10 @@ with torch.no_grad():
 plt.scatter(X[:N].detach().numpy(), y[:N], label='Actual Data for f')
 plt.plot(X[:N].detach().numpy(), predictions[:N], label='Predictions for f', color='red')
 plt.legend()
-plt.savefig("image_f.png")
+plt.savefig("opgaver/_static/c)_plot_f.png")
 plt.clf()
 
 plt.scatter(X[N:].detach().numpy(), y[N:], label='Actual Data for df')
 plt.plot(X[N:].detach().numpy(), predictions[N:], label='Predictions for df', color='red')
 plt.legend()
-plt.savefig("image_df.png")
+plt.savefig("opgaver/_static/c)_plot_df.png")
