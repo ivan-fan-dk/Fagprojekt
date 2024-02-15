@@ -37,7 +37,7 @@ class NeuralNetwork(nn.Module):
 model = NeuralNetwork()
 
 # Define loss and optimizer
-criterion = nn.MSELoss()
+criterion = nn.NLLLOSS()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # Training the model
