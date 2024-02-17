@@ -1,4 +1,3 @@
-#%%
 import numpy as np
 import torch
 import torch.nn as nn
@@ -8,12 +7,18 @@ import functions as fc
 
 f = lambda x: np.sin(x)*x+np.cos(x)
 df = lambda x: np.cos(x)*x
-N = 100
+N = 1000
 X,y = fc.data(f,-10,10,N,1)
 dy = fc.data(df,-10,10,N,1)[1]
 
+# Alternative: generate random data within -10,10
+# X = torch.sort(torch.rand(N)*20-10)[0].view(-1,1)
+# y, dy = f(X), df(X)
+
 labels = torch.stack((y,dy),dim=1).squeeze()
-print(X.shape)
+
+X_test = torch.arange(-20.,20.).view(-1,1)
+
 class NeuralNetwork(nn.Module):
     def __init__(self):
         super(NeuralNetwork, self).__init__()
@@ -35,10 +40,12 @@ class NeuralNetwork(nn.Module):
 # Create an instance of the model, define loss and optimizer
 model = NeuralNetwork()
 criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+# regularizer on weight_decay
+optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01)
 
 # Training the model
-num_epochs = 20000
+num_epochs = 10000
 
 for epoch in range(num_epochs):
     # Forward pass
@@ -59,29 +66,8 @@ with torch.no_grad():
     loss = criterion(predictions, labels)
     print(f"Mean Squared Error on test data: {loss.item():.4f}")
 
-#%%
 
-plt.scatter(X.detach().numpy(), y, label='Actual Data for f')
-plt.plot(X.detach().numpy(), predictions[:,0], label='Predictions for f', color='red')
-plt.legend()
-plt.savefig("opgaver/_static/c)_plot_f.png")
-plt.clf()
-
-plt.scatter(X.detach().numpy(), dy, label='Actual Data for df')
-plt.plot(X.detach().numpy(), predictions[:,1], label='Predictions for df', color='red')
-plt.legend()
-plt.savefig("opgaver/_static/c)_plot_df.png")
-plt.clf()
-
-X_test = torch.arange(-20,20.).view(-1,1)
-print(X_test.shape)
-plt.scatter(X_test.numpy(), f(X_test.numpy()), label='Actual Data for f')
-plt.plot(X_test.numpy(), model(X_test).detach().numpy()[:,0], label='Predictions for f', color='red')
-plt.legend()
-plt.savefig("opgaver/_static/c)_plot_f_test.png")
-plt.clf()
-
-plt.scatter(X_test.numpy(), df(X_test.numpy()), label='Actual Data for df')
-plt.plot(X_test.numpy(), model(X_test).detach().numpy()[:,1], label='Predictions for df', color='red')
-plt.legend()
-plt.savefig("opgaver/_static/c)_plot_df_test.png")
+fc.plot_comparison(X, y, predictions[:,0], "f", "c)_plot_f.png")
+fc.plot_comparison(X, dy, predictions[:,1], "df", "c)_plot_df.png")
+fc.plot_comparison(X_test, f(X_test), model(X_test)[:,0], "f", "c)_plot_f_test.png")
+fc.plot_comparison(X_test, df(X_test), model(X_test)[:,1], "df", "c)_plot_df_test.png")
