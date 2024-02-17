@@ -4,11 +4,21 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 
-#datasets:
-from sklearn import datasets
-#from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
 
+from softadapt import SoftAdapt, NormalizedSoftAdapt, LossWeightedSoftAdapt
+
+# We redefine the loss components above for the sake of completeness.
+loss_component_1 = torch.tensor([1, 2, 3, 4, 5])
+loss_component_2 = torch.tensor([150, 100, 50, 10, 0.1])
+loss_component_3 = torch.tensor([1500, 1000, 500, 100, 1])
+
+# Here we define the different SoftAdapt objects
+softadapt_object  = SoftAdapt(beta=0.1)
+normalized_softadapt_object  = NormalizedSoftAdapt(beta=0.1)
+loss_weighted_softadapt_object  = LossWeightedSoftAdapt(beta=0.1)
+
+print("1")
+exit()
 
 #prep data:
 
