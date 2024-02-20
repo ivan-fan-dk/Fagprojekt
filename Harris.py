@@ -1,128 +1,84 @@
-import torch
 import numpy as np
-from torch import nn
-from torch.utils.data import DataLoader
-from torchvision import datasets
-from torchvision.transforms import ToTensor
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import matplotlib.pyplot as plt
+import opgaver.functions as fc
 
-def pickF(F,x0,x1,N):
-    X = np.linspace(x0,x1,N)
-    y = F(X)
-    return X,y
-
-X,y = pickF(lambda x: 3*x**2,0,1,10)
-print(y)
-# Download training data from open datasets.
-training_data = datasets.FashionMNIST(
-    root="data",
-    train=True,
-    download=True,
-    transform=ToTensor(),
-)
-
-# Download test data from open datasets.
-test_data = datasets.FashionMNIST(
-    root="data",
-    train=False,
-    download=True,
-    transform=ToTensor(),
-)
-
-batch_size = 64
-
-# Create data loaders.
-train_dataloader = DataLoader(training_data, batch_size=batch_size)
-test_dataloader = DataLoader(test_data, batch_size=batch_size)
-
-for X, y in test_dataloader:
-    print(f"Shape of X [N, C, H, W]: {X.shape}")
-    print(f"Shape of y: {y.shape} {y.dtype}")
-    break
-
-device = (
-    "cuda"
-    if torch.cuda.is_available()
-    else "mps"
-    if torch.backends.mps.is_available()
-    else "cpu"
-)
-print(f"Using {device} device")
 
 class NeuralNetwork(nn.Module):
     def __init__(self):
-        super().__init__()
-        self.flatten = nn.Flatten()
-        self.linear_relu_stack = nn.Sequential(
-            nn.Linear(28*28, 512),
-            nn.ReLU(),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Linear(512, 10)
-        )
+        super(NeuralNetwork, self).__init__()
+        self.layer1 = nn.Linear(1, 10, bias=True)
+        self.layer2 = nn.Linear(10, 50, bias=True)
+        self.layer3 = nn.Linear(50, 30, bias=True)
+        self.layer4 = nn.Linear(30, 10, bias=True)
+        self.layer5 = nn.Linear(10, 2, bias=True)
+
 
     def forward(self, x):
-        x = self.flatten(x)
-        logits = self.linear_relu_stack(x)
-        return logits
+        x = torch.relu(self.layer1(x))
+        x = torch.relu(self.layer2(x))
+        x = torch.relu(self.layer3(x))
+        x = torch.relu(self.layer4(x))
+        x = self.layer5(x)
+        return x
+    
 
-model = NeuralNetwork().to(device)
-print(model)
+f = lambda x: np.sin(x)*x+np.cos(x)
+df = lambda x: np.cos(x)*x
+# Define the range of data sizes to test
+pairs = np.arange(10,10010,2000)
+X_test = torch.arange(-20.,20.).view(-1,1)
+f_test = f(X_test)
+df_test = df(X_test)
+labels_test = torch.stack((f_test,df_test),dim=1).squeeze()
 
-loss_fn = nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
+# Store the final losses for each data size
+losses = []
+for N in pairs:
+    X,y = fc.data(f,-10,10,N,1)
+    dy = fc.data(df,-10,10,N,1)[1]
 
-def train(dataloader, model, loss_fn, optimizer):
-    size = len(dataloader.dataset)
-    model.train()
-    for batch, (X, y) in enumerate(dataloader):
-        X, y = X.to(device), y.to(device)
+# Alternative: generate random data within -10,10
+# X = torch.sort(torch.rand(N)*20-10)[0].view(-1,1)
+# y, dy = f(X), df(X)
 
-        # Compute prediction error
-        pred = model(X)
-        loss = loss_fn(pred, y)
+    labels = torch.stack((y,dy),dim=1).squeeze()
 
-        # Backpropagation
+    X_test = torch.arange(-20.,20.).view(-1,1)
+
+
+
+# Create an instance of the model, define loss and optimizer
+    model = NeuralNetwork()
+    criterion = nn.MSELoss()
+    # regularizer on weight_decay
+    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01)
+    # Training the model
+    num_epochs = 1000
+
+    for epoch in range(num_epochs):
+        # Forward pass
+        outputs = model(X)
+        loss = criterion(outputs, labels)
+
+        # Backward pass and optimization
+        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        optimizer.zero_grad()
 
-        if batch % 100 == 0:
-            loss, current = loss.item(), (batch + 1) * len(X)
-            print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+        if (epoch + 1) % 10 == 0:
+            print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}', end='\r')
 
-def test(dataloader, model, loss_fn):
-    size = len(dataloader.dataset)
-    num_batches = len(dataloader)
-    model.eval()
-    test_loss, correct = 0, 0
+    # Evaluate the model
     with torch.no_grad():
-        for X, y in dataloader:
-            X, y = X.to(device), y.to(device)
-            pred = model(X)
-            test_loss += loss_fn(pred, y).item()
-            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
-    test_loss /= num_batches
-    correct /= size
-    print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+        predictions = model(X_test)
+        loss = criterion(predictions, labels_test)
+        losses.append(loss.item())
+        print(f"Mean Squared Error on test data: {loss.item():.4f}")
 
-def test(dataloader, model, loss_fn):
-    size = len(dataloader.dataset)
-    num_batches = len(dataloader)
-    model.eval()
-    test_loss, correct = 0, 0
-    with torch.no_grad():
-        for X, y in dataloader:
-            X, y = X.to(device), y.to(device)
-            pred = model(X)
-            test_loss += loss_fn(pred, y).item()
-            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
-    test_loss /= num_batches
-    correct /= size
-    print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
-epochs = 5
-
-for t in range(epochs):
-    print(f"Epoch {t+1}\n-------------------------------")
-    train(train_dataloader, model, loss_fn, optimizer)
-    test(test_dataloader, model, loss_fn)
-print("Done!")
+plt.plot(pairs, losses)
+plt.xlabel('Data size')
+plt.ylabel('Final loss')
+plt.show()
