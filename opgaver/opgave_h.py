@@ -3,6 +3,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
+import functions as fc
+# Meshgrid giver en userwarning som vi ik gider
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+
+
 
 # Define the exact solution and its derivative
 u0 = 1.0
@@ -47,22 +53,19 @@ optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01)
 num_epochs = 10000
 def ode_loss(outputs, X_train, N_f):
     # Compute the ODE loss here
-    # This will depend on your specific problem
     F_N = X_train[:, 1] * outputs  # Compute F(N(t_i^f; Θ)) = λu
     N_prime = torch.autograd.grad(outputs, X_train, grad_outputs=torch.ones_like(outputs), create_graph=True)[0][:, 0]  # Compute N'(t_i^f)
     return torch.sum((F_N - N_prime)**2) / N_f
 
 def ic_loss(outputs, labels, N_i):
     # Compute the initial condition loss here
-    # This will also depend on your specific problem
     N_t0 = outputs[X_train[:, 0] == 0]  # Compute N(t_0^i; Θ)
     u_t0 = labels[X_train[:, 0] == 0]  # Compute u(t_0)
     return torch.sum((N_t0 - u_t0)**2) / N_i
 
-# Before the training loop:
 X_train.requires_grad = True
 
-# Training the model
+# Training the model (tager lang tid)
 num_epochs = 100
 for epoch in range(num_epochs):
     # Forward pass
@@ -83,16 +86,10 @@ for epoch in range(num_epochs):
     if (epoch + 1) % 1000 == 0:
         print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
 
-# After the training loop:
 with torch.no_grad():
     predictions = model(X_train)
 
 
-# Plot the predicted values and the exact solutions
-plt.figure(figsize=(10, 5))
-plt.plot(X_train[:, 0].detach().numpy(), y_train.detach().numpy(), label='Exact solution')
-plt.plot(X_train[:, 0].detach().numpy(), predictions.detach().numpy(), label='Predicted values')
-plt.xlabel('t')
-plt.ylabel('u')
-plt.legend()
-plt.show()
+fc.plot_comparison(X_train[:, 0].detach().numpy(), y_train.detach().numpy(), predictions.detach().numpy(), plot_title ="IVP", filename="h)_plot_h")
+
+
