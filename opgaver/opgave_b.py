@@ -6,8 +6,7 @@ import matplotlib.pyplot as plt
 import functions as fc
 
 N = 1000
-X = np.linspace(-30, 30, N)
-y = np.sin(X)*X+np.cos(X)
+X,y = fc.data1D(lambda x,: np.sin(x)*x+np.cos(x),-30,30,N)
 #y = X**3+X**2
 
 X = torch.tensor(X, dtype=torch.float32).view(-1, 1)    
@@ -52,7 +51,8 @@ for epoch in range(num_epochs):
     if (epoch + 1) % 10 == 0:
         print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
 
-# Evaluate the model
+# Evaluate the model 
+## How is this using test data?
 with torch.no_grad():
     predictions = model(X)
     loss = criterion(predictions, y)

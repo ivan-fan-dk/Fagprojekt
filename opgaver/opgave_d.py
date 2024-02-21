@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
-import opgaver.functions as fc
+import functions as fc
 import os
 print(os.getcwd())
 class NeuralNetwork(nn.Module):
@@ -28,7 +28,7 @@ class NeuralNetwork(nn.Module):
 f = lambda x: np.sin(x)*x+np.cos(x)
 df = lambda x: np.cos(x)*x
 # Define the range of data sizes to test
-pairs = np.arange(10,2010,2000)
+pairs = np.arange(10,10010,2000)
 X_test = torch.arange(-10.,10.).view(-1,1)
 f_test = f(X_test)
 df_test = df(X_test)
@@ -80,7 +80,7 @@ for N in pairs:
 plt.plot(pairs, losses)
 plt.xlabel('Data size')
 plt.ylabel('Final loss')
-plt.savefig(os.path.dirname(__file__) + f"/_static/Harres")
+plt.savefig(os.path.dirname(__file__) + f"/_static/opg_d")
     # clear figure
 plt.clf()
 
