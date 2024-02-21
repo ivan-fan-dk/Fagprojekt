@@ -65,7 +65,7 @@ def ic_loss(outputs, labels, N_i):
 
 X_train.requires_grad = True
 
-# Training the model (tager lang tid)
+# Training the model (tager lang tid) . 
 num_epochs = 100
 for epoch in range(num_epochs):
     # Forward pass
