@@ -12,13 +12,15 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 # Define the exact solution and its derivative
 u0 = 1.0
-lam_range = torch.linspace(-1, 1, steps=100)  # lambda in the range [-1, 1]
-t_range = torch.linspace(0, 2, steps=100)  # time in the range [0, 2]
+lam_range = torch.linspace(-1, 1, steps=10)  # lambda in the range [-1, 1]
+t_range = torch.linspace(0, 2, steps=10)  # time in the range [0, 2]
 u = lambda t, lam: u0 * torch.exp(lam * t)
 
 # Generate training data
-T, LAM = torch.meshgrid(t_range, lam_range)  # create a grid of (t, lambda)
+T, LAM = torch.meshgrid(t_range, lam_range, indexing="xy")  # create a grid of (t, lambda)
 X_train = torch.stack((T.reshape(-1), LAM.reshape(-1)), dim=1)  # flatten and stack to get the coordinates (t, lambda)
+print(X_train)
+quit()
 y_train = u(X_train[:, 0], X_train[:, 1])  # compute the exact solution at each (t, lambda)
 y_train = y_train.view(-1, 1)  # reshape y_train to [10000, 1]
 
@@ -50,7 +52,7 @@ criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01)
 
 # Training the model
-num_epochs = 10000
+num_epochs = 100
 def ode_loss(outputs, X_train, N_f):
     # Compute the ODE loss here
     F_N = X_train[:, 1] * outputs  # Compute F(N(t_i^f; Θ)) = λu
@@ -66,7 +68,7 @@ def ic_loss(outputs, labels, N_i):
 X_train.requires_grad = True
 
 # Training the model (tager lang tid) . 
-num_epochs = 100
+num_epochs = 50
 for epoch in range(num_epochs):
     # Forward pass
     outputs = model(X_train)
