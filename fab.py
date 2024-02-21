@@ -95,3 +95,6 @@ def neural_approx(choice):
     plt.show()
 
     return 'Double dab'
+
+# Ved ik hvorfor den ikke plotter her
+neural_approx('cubic')
