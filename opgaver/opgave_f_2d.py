@@ -24,17 +24,17 @@ X_test = torch.linspace(-10, 10, N, requires_grad=True).view(-1, 1)
 class NeuralNetwork(nn.Module):
     def __init__(self):
         super(NeuralNetwork, self).__init__()
-        self.layer1 = nn.Linear(1, 20, bias=True)
-        self.layer2 = nn.Linear(20, 40, bias=True)
-        self.layer3 = nn.Linear(40, 60, bias=True)
-        self.layer4 = nn.Linear(60, 30, bias=True)
-        self.layer5 = nn.Linear(30, 1, bias=True)
+        self.layer1 = nn.Linear(3, 20, bias=True)
+        self.layer2 = nn.Linear(20, 20, bias=True)
+        self.layer3 = nn.Linear(20, 20, bias=True)
+        self.layer4 = nn.Linear(20, 20, bias=True)
+        self.layer5 = nn.Linear(20, 1, bias=True)
 
     def forward(self, x):
         x = torch.tanh(self.layer1(x))
-        x = torch.cos(self.layer2(x))
-        x = torch.relu(self.layer3(x))
-        x = torch.relu(self.layer4(x))
+        x = torch.tanh(self.layer2(x))
+        x = torch.tanh(self.layer3(x))
+        x = torch.tanh(self.layer4(x))
         x = self.layer5(x)
         return x
 
@@ -54,7 +54,7 @@ for epoch in range(num_epochs):
     d2f_dx2 = torch.autograd.grad(df_dx, X_train, create_graph=True, grad_outputs=torch.ones_like(df_dx))[0]
 
     # Compute the loss
-    loss = criterion(d2f_dx2[1,-1], f(X_train[1,-1])) + criterion(model(torch.tensor([x_left])), torch.tensor([g_left])) + criterion(model(torch.tensor([x_right])), torch.tensor([g_right]))
+    loss = criterion(d2f_dx2, f(X_train)) + criterion(model(torch.tensor([x_left])), torch.tensor([g_left])) + criterion(model(torch.tensor([x_right])), torch.tensor([g_right]))
 
     # Backward pass and optimization
     optimizer.zero_grad()
