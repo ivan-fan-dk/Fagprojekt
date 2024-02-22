@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import functions as fc
-
+from softadapt import *
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -53,6 +53,21 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 num_epochs = 500
 
+ 
+#setup for softadapt:
+# Change 1: Create a SoftAdapt object (with your desired variant)
+softadapt_object = LossWeightedSoftAdapt(beta=0.1)
+
+# Change 2: Define how often SoftAdapt calculate weights for the loss components
+epochs_to_make_updates = 5
+
+# Change 3: Initialize lists to keep track of loss values over the epochs we defined above
+values_of_component_1 = []
+values_of_component_2 = []
+values_of_component_3 = []
+# Initializing adaptive weights to all ones.
+adapt_weights = torch.tensor([1,1,1])
+
 for epoch in range(num_epochs):
     # Forward pass
     u_prediction = model(grid_X, grid_Y)
@@ -64,6 +79,8 @@ for epoch in range(num_epochs):
     # Compute the second derivatives
     d2f_dx2 = torch.autograd.grad(df_dx, grid_X, create_graph=True, grad_outputs=torch.ones_like(df_dx))[0]
     d2f_dy2 = torch.autograd.grad(df_dy, grid_Y, create_graph=True, grad_outputs=torch.ones_like(df_dy))[0]
+
+
 
 
     #seperate Ohm and dOhm:
