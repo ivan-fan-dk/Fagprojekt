@@ -56,7 +56,7 @@ num_epochs = 500
  
 #setup for softadapt:
 # Change 1: Create a SoftAdapt object (with your desired variant)
-softadapt_object = LossWeightedSoftAdapt(beta=0.1)
+softadapt_object = NormalizedSoftAdapt(beta=0.1)
 
 # Change 2: Define how often SoftAdapt calculate weights for the loss components
 epochs_to_make_updates = 5
@@ -65,8 +65,11 @@ epochs_to_make_updates = 5
 values_of_component_1 = []
 values_of_component_2 = []
 values_of_component_3 = []
+values_of_component_4 = []
+values_of_component_5 = []
+
 # Initializing adaptive weights to all ones.
-adapt_weights = torch.tensor([1,1,1])
+adapt_weights = torch.tensor([1,1,1,1,1])
 
 for epoch in range(num_epochs):
     # Forward pass
@@ -91,12 +94,42 @@ for epoch in range(num_epochs):
     y_side1 = criterion(model(grid_X, grid_Y)[-1, :, :], (torch.ones(N) + Y_train**2).view(-1,1))
     y_side2 = criterion(model(grid_X, grid_Y)[0, :, :],  (torch.ones(N) + Y_train**2).view(-1,1))
 
-
-    # Compute the loss
-    loss = criterion(d2f_dx2[1:-1,1:-1]+d2f_dy2[1:-1,1:-1], f(grid_X[1:-1,1:-1],grid_Y[1:-1,1:-1]))+x_side1+x_side2+y_side1+y_side2
+    #DE criterion:
+    DE_loss = criterion(d2f_dx2[1:-1,1:-1]+d2f_dy2[1:-1,1:-1], f(grid_X[1:-1,1:-1],grid_Y[1:-1,1:-1]))
 
     # Backward pass and optimization
     optimizer.zero_grad()
+
+    values_of_component_1.append(x_side1)
+    values_of_component_2.append(x_side2)
+    values_of_component_3.append(y_side1)
+    values_of_component_4.append(y_side2)
+    values_of_component_5.append(DE_loss)
+
+    # Compute the loss
+    #loss = criterion(d2f_dx2[1:-1,1:-1]+d2f_dy2[1:-1,1:-1], f(grid_X[1:-1,1:-1],grid_Y[1:-1,1:-1]))+x_side1+x_side2+y_side1+y_side2
+
+    if epoch % epochs_to_make_updates == 0 and epoch != 0:
+        adapt_weights = softadapt_object.get_component_weights(
+        torch.tensor(values_of_component_1), 
+        torch.tensor(values_of_component_2), 
+        torch.tensor(values_of_component_3),
+        torch.tensor(values_of_component_4),
+        torch.tensor(values_of_component_5),
+        verbose=False,
+        )
+                                                            
+      
+          # Resetting the lists to start fresh (this part is optional)
+        values_of_component_1 = []
+        values_of_component_2 = []
+        values_of_component_3 = []
+        values_of_component_4 = []
+        values_of_component_5 = []
+
+      # Change 5: Update the loss function with the linear combination of all components.
+    loss = adapt_weights[0] * x_side1 + adapt_weights[1]*x_side2 + adapt_weights[2]*y_side1 + adapt_weights[3]*y_side2 + adapt_weights[4]*DE_loss
+
     loss.backward()
     optimizer.step()
 
