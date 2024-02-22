@@ -4,3 +4,4 @@ torch==1.13.1
 torchvision==0.14.1
 matplotlib==3.5.3
 git+https://github.com/dr-aheydari/SoftAdapt.git
+importlib-metadata==6.7.0

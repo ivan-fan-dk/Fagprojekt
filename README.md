@@ -81,6 +81,17 @@ To verify that the environment was removed, in your terminal window, run:
 conda info --envs
 ```
 
+## Recommended VS Code extensions
+[Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
+
+Remark: After installing the extension, you will see a "run python file button" ![](miscellaneous/run-button.png) on the top right of VS code. By default it select the base python interpreter. To make the button work in our case, remember to select the Python interpreter.
+
+Here is how to do it:
+1. Press `Ctrl+Shift+P` to open the command palette.
+2. Type `Python: Select Interpreter` and select the Python interpreter you have installed.
+3. Now you can run the Python file by simply clicking the button
+![](miscellaneous/select-python-interpreter.gif)
+
 Have fun with the project!
 
 Ivan
