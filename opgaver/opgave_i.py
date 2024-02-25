@@ -9,7 +9,7 @@ import warnings
 import os
 warnings.filterwarnings("ignore", category=UserWarning)
 
-N = 15
+N = 100
 x0 = 1
 v0 = 0
 w0 = 3
@@ -20,6 +20,7 @@ t_max = 10
 # Generate training data
 t_range = torch.linspace(t0, t_max, steps=N, requires_grad=True)  
 grid_T = t_range.unsqueeze(1)
+print(grid_T.shape)
 
 class NeuralNetwork(nn.Module):
 
@@ -71,18 +72,18 @@ for epoch in range(num_epochs):
 
     #hope boundary is nice!
     # Assuming t0, lam_range, and u0 are your tensors and N is the size
-    bound_cond = criterion(model(t0 * torch.ones(N).view(-1,1,1)),  torch.ones(N).view(-1,1,1))
+    ivp_cond_x = criterion(model(t0 * torch.ones(N).view(-1,1,1)),  torch.ones(N).view(-1,1,1))
     ivp_cond_v = criterion(model(v0 * torch.ones(N).view(-1,1,1)),  0*torch.ones(N).view(-1,1,1))
 
     #DE criterion:
 
-    DE_loss = criterion(df_df_dx, -w0**2*grid_T-l0*df_dx)
+    DE_loss = criterion(df_df_dx, -w0**2*model(grid_T)-l0*df_dx)
 
     # Backward pass and optimization
     optimizer.zero_grad()
 
     values_of_component_1.append(DE_loss)
-    values_of_component_2.append(bound_cond)
+    values_of_component_2.append(ivp_cond_x)
     values_of_component_3.append(ivp_cond_v)
 
     # Compute the loss
@@ -104,7 +105,7 @@ for epoch in range(num_epochs):
 
 
       # Change 5: Update the loss function with the linear combination of all components.
-    loss = adapt_weights[0] * DE_loss + adapt_weights[1] * bound_cond + adapt_weights[2]*ivp_cond_v
+    loss = adapt_weights[0] * DE_loss + adapt_weights[1] * ivp_cond_x + adapt_weights[2] * ivp_cond_v
 
     loss.backward()
     optimizer.step()
@@ -116,7 +117,7 @@ print(f"Mean Squared Error on trained data: {loss.item():.4f}")
 # Plot the results
 # Compute model predictions
 with torch.no_grad():
-    predictions = model(torch.linspace(0,5,N).view(-1,1,1))
+    predictions = model(torch.linspace(t0,t_max,N).view(-1,1,1))
 
 
 predictions_np = predictions.squeeze(-1).detach().numpy()  # Convert tensor to numpy array
@@ -152,9 +153,27 @@ def damped_harmonic_oscillator(t, y, omega_0, damping):
 # Runge-Kutta numerical solution
 t_values_rk, y_values_rk = runge_kutta_solver(damped_harmonic_oscillator, torch.tensor([x0, v0]), [t0, t_max], (t_max - t0) / (N - 1), w0, l0)
 
+
+#Analytical solution
+u = lambda t: np.exp(-0.25*t)*(0.0836242*np.sin(2.9*t)+np.cos(2.9*t)) 
+
 plt.figure(figsize=(10, 5))
 
 # Plotting predictions
 plt.plot(t_range_np, predictions_np, label='Predictions', color='blue')
+plt.plot(t_range_np, u(t_range_np), label="Analytical", color="blue")
+plt.savefig("opgaver/_static/i)_plot.png")
 
-fc.plot_comparison(t_range_np, y_values_rk[:, 0], predictions_np, "test", "i)_plot_test")
+
+plt.scatter(t_range_np, u(t_range_np), label='Analytical Data')
+plt.plot(t_range_np, predictions, label='Predictions', color='red')
+plt.legend()
+plt.title("Test")
+filename = "i_plot"
+plt.savefig(os.path.dirname(__file__) + f"/_static/{filename}")
+
+
+# Plot runge Kutta
+#fc.plot_comparison(t_range_np, y_values_rk[:, 0], predictions_np, "test", "i)_plot_test")
+# Plot analytical
+#fc.plot_comparison(t_range_np, u(t_range_np), predictions_np, "test", "i)_plot_test")
