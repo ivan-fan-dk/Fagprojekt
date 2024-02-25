@@ -160,13 +160,9 @@ u = lambda t: np.exp(-0.25*t)*(0.0836242*np.sin(2.9*t)+np.cos(2.9*t))
 plt.figure(figsize=(10, 5))
 
 # Plotting predictions
-plt.plot(t_range_np, predictions_np, label='Predictions', color='blue')
-plt.plot(t_range_np, u(t_range_np), label="Analytical", color="blue")
-plt.savefig("opgaver/_static/i)_plot.png")
-
 
 plt.scatter(t_range_np, u(t_range_np), label='Analytical Data')
-plt.plot(t_range_np, predictions, label='Predictions', color='red')
+plt.plot(t_range_np, predictions_np, label='Predictions', color='red')
 plt.legend()
 plt.title("Test")
 filename = "i_plot"
