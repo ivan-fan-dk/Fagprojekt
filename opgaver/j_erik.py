@@ -50,7 +50,7 @@ criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 num_epochs = 5000
-model(X_train, t_train)
+
 
 for epoch in range(num_epochs):
     # Forward pass
