@@ -20,7 +20,7 @@ t_max = 10
 # Generate training data
 t_range = torch.linspace(t0, t_max, steps=N, requires_grad=True)  
 grid_T = t_range.unsqueeze(1)
-print(grid_T.shape)
+
 
 class NeuralNetwork(nn.Module):
 
@@ -43,7 +43,7 @@ model = NeuralNetwork()
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-num_epochs = 2000
+num_epochs = 20000
 
  
 #setup for softadapt:
@@ -69,11 +69,9 @@ for epoch in range(num_epochs):
     df_dx = torch.autograd.grad(u_prediction, grid_T, create_graph=True, grad_outputs=torch.ones_like(u_prediction))[0]
     df_df_dx = torch.autograd.grad(df_dx, grid_T, create_graph=True, grad_outputs=torch.ones_like(df_dx))[0]
     
-
-    #hope boundary is nice!
-    # Assuming t0, lam_range, and u0 are your tensors and N is the size
-    ivp_cond_x = criterion(model(t0 * torch.ones(N).view(-1,1,1)),  torch.ones(N).view(-1,1,1))
-    ivp_cond_v = criterion(model(v0 * torch.ones(N).view(-1,1,1)),  0*torch.ones(N).view(-1,1,1))
+    # Adding initial conditions
+    ivp_cond_x = criterion(model(t0 * torch.ones(N).view(-1,1,1)),  x0*torch.ones(N).view(-1,1,1))
+    ivp_cond_v = criterion(model(t0 * torch.ones(N).view(-1,1,1)),  v0*torch.ones(N).view(-1,1,1))
 
     #DE criterion:
 
@@ -105,7 +103,7 @@ for epoch in range(num_epochs):
 
 
       # Change 5: Update the loss function with the linear combination of all components.
-    loss = adapt_weights[0] * DE_loss + adapt_weights[1] * ivp_cond_x + adapt_weights[2] * ivp_cond_v
+    loss = adapt_weights[0] * DE_loss + 4*adapt_weights[1] * ivp_cond_x + adapt_weights[2] * ivp_cond_v
 
     loss.backward()
     optimizer.step()
@@ -121,10 +119,10 @@ with torch.no_grad():
 
 
 predictions_np = predictions.squeeze(-1).detach().numpy()  # Convert tensor to numpy array
-t_range_np = torch.linspace(t0,t_max,N).detach().numpy()  # Convert tensor to numpy array
+t_range_np = t_range.detach().numpy()  # Convert tensor to numpy array
 
 
-### SOLVE NUMERICALLY
+### SOLVE NUMERICALLY with runge Kutta
 
 # Define the differential equation
 def runge_kutta_solver(func, y0, t_span, h, omega_0, damping):
@@ -168,8 +166,3 @@ plt.title("Test")
 filename = "i_plot"
 plt.savefig(os.path.dirname(__file__) + f"/_static/{filename}")
 
-
-# Plot runge Kutta
-#fc.plot_comparison(t_range_np, y_values_rk[:, 0], predictions_np, "test", "i)_plot_test")
-# Plot analytical
-#fc.plot_comparison(t_range_np, u(t_range_np), predictions_np, "test", "i)_plot_test")
