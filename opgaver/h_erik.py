@@ -20,10 +20,9 @@ print(lam_range)
 # Generate training data
 grid_X, grid_Y = torch.meshgrid(t_range, lam_range, indexing="xy")
 
+
 grid_X = grid_X.unsqueeze(2)
 grid_Y = grid_Y.unsqueeze(2)
-
-print(u(grid_X,grid_Y).shape)
 
 class NeuralNetwork(nn.Module):
 
@@ -52,7 +51,7 @@ num_epochs = 2000
  
 #setup for softadapt:
 # Change 1: Create a SoftAdapt object (with your desired variant)
-softadapt_object = NormalizedSoftAdapt(beta=0.1)
+softadapt_object = SoftAdapt(beta=0.1)
 
 # Change 2: Define how often SoftAdapt calculate weights for the loss components
 epochs_to_make_updates = 5
@@ -112,7 +111,7 @@ print(f"Mean Squared Error on trained data: {loss.item():.4f}")
 # Plot the results
 # Compute model predictions
 with torch.no_grad():
-    predictions = model(torch.linspace(0,5,N).view(-1,1,1), (0.5*torch.ones(N)).view(-1,1,1))
+    predictions = model(torch.linspace(0,5,N).view(-1,1,1), (-1*torch.ones(N)).view(-1,1,1))
 
 
 print(predictions)
@@ -125,7 +124,7 @@ plt.figure(figsize=(10, 5))
 plt.plot(t_range_np, predictions_np, label='Predictions', color='blue')
 
 # Plotting training points
-plt.scatter(t_range_np, u(torch.linspace(0,5,N), (0.5*torch.ones(N))).detach().numpy(), label='Training Points', color='red')
+plt.scatter(t_range_np, u(torch.linspace(0,5,N), (-1*torch.ones(N))).detach().numpy(), label='Training Points', color='red')
 
 plt.legend(loc='upper left')
 plt.savefig("opgaver/_static/h)_plot.png")
