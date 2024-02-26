@@ -43,7 +43,7 @@ model = NeuralNetwork()
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-num_epochs = 20000
+num_epochs = 2000
 
  
 #setup for softadapt:
@@ -103,7 +103,7 @@ for epoch in range(num_epochs):
 
 
       # Change 5: Update the loss function with the linear combination of all components.
-    loss = adapt_weights[0] * DE_loss + 4*adapt_weights[1] * ivp_cond_x + adapt_weights[2] * ivp_cond_v
+    loss = adapt_weights[0] * DE_loss + 4*adapt_weights[1] * ivp_cond_x+ adapt_weights[2] * ivp_cond_v
 
     loss.backward()
     optimizer.step()
