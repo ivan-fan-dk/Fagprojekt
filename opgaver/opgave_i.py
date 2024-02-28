@@ -43,7 +43,7 @@ model = NeuralNetwork()
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-num_epochs = 2000
+num_epochs = 20000
 
  
 #setup for softadapt:
@@ -70,8 +70,8 @@ for epoch in range(num_epochs):
     df_df_dx = torch.autograd.grad(df_dx, grid_T, create_graph=True, grad_outputs=torch.ones_like(df_dx))[0]
     
     # Adding initial conditions
-    ivp_cond_x = criterion(model(t0 * torch.ones(N).view(-1,1,1)),  x0*torch.ones(N).view(-1,1,1))
-    ivp_cond_v = criterion(model(t0 * torch.ones(N).view(-1,1,1)),  v0*torch.ones(N).view(-1,1,1))
+    ivp_cond_x = criterion(model(t0 * torch.ones(1).view(-1,1,1)),  x0*torch.ones(1).view(-1,1,1))
+    ivp_cond_v = criterion(df_dx[0] * torch.ones(1).view(-1,1,1),  v0*torch.ones(1).view(-1,1,1))
 
     #DE criterion:
 
@@ -103,7 +103,7 @@ for epoch in range(num_epochs):
 
 
       # Change 5: Update the loss function with the linear combination of all components.
-    loss = adapt_weights[0] * DE_loss + 4*adapt_weights[1] * ivp_cond_x+ adapt_weights[2] * ivp_cond_v
+    loss = adapt_weights[0] * DE_loss + adapt_weights[1] * ivp_cond_x+ adapt_weights[2] * ivp_cond_v
 
     loss.backward()
     optimizer.step()
@@ -122,7 +122,7 @@ predictions_np = predictions.squeeze(-1).detach().numpy()  # Convert tensor to n
 t_range_np = t_range.detach().numpy()  # Convert tensor to numpy array
 
 
-### SOLVE NUMERICALLY with runge Kutta
+### SOLVE NUMERICALLY with Runge Kutta
 
 # Define the differential equation
 def runge_kutta_solver(func, y0, t_span, h, omega_0, damping):
@@ -161,8 +161,9 @@ plt.figure(figsize=(10, 5))
 
 plt.scatter(t_range_np, u(t_range_np), label='Analytical Data')
 plt.plot(t_range_np, predictions_np, label='Predictions', color='red')
+#plt.plot(t_range_np, y_values_rk[:,1].numpy(), label="Runge Kutta")
 plt.legend()
 plt.title("Test")
-filename = "i_plot"
+filename = "i_plot_chris_test"
 plt.savefig(os.path.dirname(__file__) + f"/_static/{filename}")
 
