@@ -34,12 +34,17 @@ class NeuralNetwork(nn.Module):
         super().__init__()
         
         self.fn_approx = nn.Sequential(
-            nn.Linear(2,64),
+            nn.Linear(2,128),
             nn.Tanh(),
-            nn.Linear(64,32),
+            nn.Linear(128,312),
             nn.Tanh(),
-            nn.Linear(32,1)
+            nn.Linear(312,1)
         )
+    @staticmethod
+    def init_weights(m):
+        if isinstance(m, nn.Linear):
+            torch.nn.init.xavier_uniform_(m.weight)
+            m.bias.data.fill_(0.01)
 
     def forward(self, x, y):
         x_combined = torch.cat((x, y),dim=2)
@@ -48,6 +53,7 @@ class NeuralNetwork(nn.Module):
 
     
 model = NeuralNetwork()
+model.apply(NeuralNetwork.init_weights)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
