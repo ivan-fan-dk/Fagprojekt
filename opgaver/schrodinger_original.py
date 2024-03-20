@@ -173,4 +173,4 @@ with torch.no_grad():
 
 plt.plot(X_vals, np.sqrt(u_pred[:,:,0]**2+u_pred[:,:,1]**2), label='Prediction for t=0.59')
 plt.tight_layout()
-plt.savefig("opgaver/_static/pøllegrotten123.png")
+plt.savefig("opgaver/_static/schrodinger_original.png")
