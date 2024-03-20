@@ -1,62 +1,160 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
+import numpy as np
+import functions as fc
+from softadapt import *
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import warnings
+import os
+warnings.filterwarnings("ignore", category=UserWarning)
 
-# Define the Physics-Informed Neural Network (PINNS) model
-class PINNSModel(nn.Module):
+N = 100
+t0 = 0
+x0 = 0
+v0 = 10
+t_max = 10
+g = 9.82
+
+# Generate training data
+t_range = torch.linspace(x0, t_max, steps=N, requires_grad=True)  
+grid_T = t_range.unsqueeze(1)
+
+
+class NeuralNetwork(nn.Module):
+
     def __init__(self):
-        super(PINNSModel, self).__init__()
-        self.fc1 = nn.Linear(2, 50)  # Input: (time, position)
-        self.fc2 = nn.Linear(50, 50)
-        self.fc3 = nn.Linear(50, 1)  # Output: mass
+        super().__init__()
+        
+        self.fn_approx = nn.Sequential(
+            nn.Linear(1,64),
+            nn.Tanh(),
+            nn.Linear(64,32),
+            nn.Tanh(),
+            nn.Linear(32,1)
+        )
 
     def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        x = torch.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+        logits = self.fn_approx(x)
+        return logits
 
-# Generate sample trajectory data (time, position, mass)
-# For simplicity, let's assume a projectile launched from the ground
-# with an initial velocity, and we collect data on its position at
-# different time intervals.
-def generate_data(num_samples):
-    v = 10
-    F = 2
-    m = 4
-    times = torch.linspace(0,11,num_samples).reshape(-1,1)
-    positions = (v*times-(F/2*m)*times**2)
-    mass = torch.tensor([[m]])  # True mass of the object
-    return torch.cat((times, positions, mass.expand(num_samples, -1)), dim=1)
+model = NeuralNetwork()
+criterion = nn.MSELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-# Train the PINNS model
-def train_model(model, data, num_epochs=1000, lr=0.001):
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-    criterion = nn.MSELoss()
+num_epochs = 20000
 
-    for epoch in range(num_epochs):
-        optimizer.zero_grad()
-        mass_pred = model(data[:, :2])  # Predict mass based on time and position
-        loss = criterion(mass_pred, data[:, 2].unsqueeze(1))  # True mass is the third column
-        loss.backward()
-        optimizer.step()
+ 
+#setup for softadapt:
+# Change 1: Create a SoftAdapt object (with your desired variant)
+softadapt_object = NormalizedSoftAdapt(beta=0.1)
 
-        if epoch % 100 == 0:
-            print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item()}')
+# Change 2: Define how often SoftAdapt calculate weights for the loss components
+epochs_to_make_updates = 5
 
-# Main
-if __name__ == "__main__":
-    # Generate sample trajectory data
-    num_samples = 50
-    trajectory_data = generate_data(num_samples)
+# Change 3: Initialize lists to keep track of loss values over the epochs we defined above
+values_of_component_1 = []
+values_of_component_2 = []
+values_of_component_3 = []
+
+# Initializing adaptive weights to all ones.
+adapt_weights = torch.tensor([1,1,1])
+
+for epoch in range(num_epochs):
+    # Forward pass
+    u_prediction = model(grid_T)
+
+    # Compute the first derivatives
+    df_dx = torch.autograd.grad(u_prediction, grid_T, create_graph=True, grad_outputs=torch.ones_like(u_prediction))[0]
+    df_df_dx = torch.autograd.grad(df_dx, grid_T, create_graph=True, grad_outputs=torch.ones_like(df_dx))[0]
     
-    # Initialize PINNS model
-    model = PINNSModel()
+    # Adding initial conditions
+    ivp_cond_x = criterion(model(t0 * torch.ones(1).view(-1,1,1)),  x0*torch.ones(1).view(-1,1,1))
+    ivp_cond_v = criterion(df_dx[0] * torch.ones(1).view(-1,1,1),  v0*torch.ones(1).view(-1,1,1))
 
-    # Train the PINNS model using trajectory data
-    train_model(model, trajectory_data)
+    #DE criterion:
 
-    # Estimate the mass of the object
-    estimated_mass = model(torch.tensor([[0.0, 0.0]]))  # Assuming initial position
-    print(f"Estimated mass: {estimated_mass.item()} kg")
+    DE_loss = criterion(df_df_dx, -g)
+
+    # Backward pass and optimization
+    optimizer.zero_grad()
+
+    values_of_component_1.append(DE_loss)
+    values_of_component_2.append(ivp_cond_x)
+    values_of_component_3.append(ivp_cond_v)
+
+    # Compute the loss
+
+    # Change 4: Append the loss values to the lists
+    if epoch % epochs_to_make_updates == 0 and epoch != 0:
+        adapt_weights = softadapt_object.get_component_weights(
+        torch.tensor(values_of_component_1), 
+        torch.tensor(values_of_component_2), 
+        torch.tensor(values_of_component_3), 
+        verbose=False,
+        )
+                                                            
+      
+          # Resetting the lists to start fresh (this part is optional)
+        values_of_component_1 = []
+        values_of_component_2 = []
+        values_of_component_3 = []
+
+
+      # Change 5: Update the loss function with the linear combination of all components.
+    loss = adapt_weights[0] * DE_loss + adapt_weights[1] * ivp_cond_x+ adapt_weights[2] * ivp_cond_v
+
+    loss.backward()
+    optimizer.step()
+
+    if (epoch + 1) % 1 == 0:
+        print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}', end='\r')
+print(f"Mean Squared Error on trained data: {loss.item():.4f}")
+
+# Plot the results
+# Compute model predictions
+with torch.no_grad():
+    predictions = model(torch.linspace(t0,t_max,N).view(-1,1,1))
+
+
+predictions_np = predictions.squeeze(-1).detach().numpy()  # Convert tensor to numpy array
+t_range_np = t_range.detach().numpy()  # Convert tensor to numpy array
+
+
+####### True values
+
+def theoretical_motion(input, g):
+    """
+    Compute the theoretical projectile motion.
+
+    Args:
+        input: ndarray with shape (num_samples, 3) for t, v0_x, v0_z
+        g: gravity acceleration
+
+    Returns:
+        theoretical motion of x, z.
+    """
+    t, v0_x, v0_z = np.split(input, 3, axis=-1)
+    x = v0_x * t
+    z = v0_z * t - 0.5 * g * t * t
+    return x, z
+
+g = 1
+num_test_samples = 100
+t = np.linspace(0, 1, num_test_samples).reshape((num_test_samples, 1))
+v0 = 0.5 * np.ones((num_test_samples, 2))
+x = np.concatenate([t, v0], axis=-1)
+plt.plot(*theoretical_motion(x, g), label='theory', color='crimson')
+
+
+
+# Plotting predictions
+
+plt.scatter(t_range_np, u(t_range_np), label='Analytical Data')
+plt.plot(t_range_np, predictions_np, label='Predictions', color='red')
+#plt.plot(t_range_np, y_values_rk[:,1].numpy(), label="Runge Kutta")
+plt.legend()
+plt.title("Test")
+filename = "i_plot_chris_test"
+plt.savefig(os.path.dirname(__file__) + f"/_static/{filename}")
 
