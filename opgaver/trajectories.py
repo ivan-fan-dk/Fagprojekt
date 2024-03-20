@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import numpy as np
 
 # Define the Physics-Informed Neural Network (PINNS) model
 class PINNSModel(nn.Module):
@@ -22,9 +21,12 @@ class PINNSModel(nn.Module):
 # with an initial velocity, and we collect data on its position at
 # different time intervals.
 def generate_data(num_samples):
-    times = torch.linspace(0, 5, num_samples).reshape(-1, 1)  # Time samples
-    positions = 4.9 * times ** 2  # Assuming projectile motion under gravity
-    mass = torch.tensor([[10.0]])  # True mass of the object
+    v = 10
+    F = 2
+    m = 4
+    times = torch.linspace(0,11,num_samples).reshape(-1,1)
+    positions = (v*times-(F/2*m)*times**2)
+    mass = torch.tensor([[m]])  # True mass of the object
     return torch.cat((times, positions, mass.expand(num_samples, -1)), dim=1)
 
 # Train the PINNS model
@@ -47,7 +49,7 @@ if __name__ == "__main__":
     # Generate sample trajectory data
     num_samples = 50
     trajectory_data = generate_data(num_samples)
-
+    
     # Initialize PINNS model
     model = PINNSModel()
 
@@ -57,3 +59,4 @@ if __name__ == "__main__":
     # Estimate the mass of the object
     estimated_mass = model(torch.tensor([[0.0, 0.0]]))  # Assuming initial position
     print(f"Estimated mass: {estimated_mass.item()} kg")
+
