@@ -4,8 +4,10 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 from softadapt import *
 import numpy as np
+import scipy.io
+import os
 
-N = 30
+N = 50
 
 # Define boundary conditions
 t0 = 0.0
@@ -37,15 +39,13 @@ class NeuralNetwork(nn.Module):
         super().__init__()
         
         self.fn_approx = nn.Sequential(
-            nn.Linear(2,100),
+            nn.Linear(2,10),
             nn.Tanh(),
-            nn.Linear(100,100),
+            nn.Linear(10,10),
             nn.Tanh(),
-            nn.Linear(100,100),
+            nn.Linear(10,10),
             nn.Tanh(),
-            nn.Linear(100,100),
-            nn.Tanh(),
-            nn.Linear(100,2)
+            nn.Linear(10,2)
         )
 
     @staticmethod
@@ -65,7 +65,7 @@ model.apply(NeuralNetwork.init_weights)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-num_epochs = 5000
+num_epochs = 7000
 
 #setup for softadapt:
 
@@ -169,8 +169,18 @@ with torch.no_grad():
     X_vals = X_vals.squeeze(-1).numpy()
     t_vals = t_vals.squeeze(-1).numpy()
 
+# loadmat
+data = scipy.io.loadmat(os.path.dirname(__file__) + '/_static/NLS.mat')
+
+t = data['tt'].flatten()[:,None]
+x = data['x'].flatten()[:,None]
+Exact = data['uu']
+Exact_u = np.real(Exact)
+Exact_v = np.imag(Exact)
+Exact_h = np.sqrt(Exact_u**2 + Exact_v**2)
 
 
 plt.plot(X_vals, np.sqrt(u_pred[:,:,0]**2+u_pred[:,:,1]**2), label='Prediction for t=0.59')
+plt.plot(x,Exact_h[:,100], 'b-', linewidth = 2, label = 'Exact')
 plt.tight_layout()
 plt.savefig("opgaver/_static/pøllegrotten123.png")
