@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from softadapt import *
 import numpy as np
 import pandas as pd
+from matplotlib.animation import FuncAnimation
 N = 50
 
 Data = pd.read_pickle('option_data.pkl')

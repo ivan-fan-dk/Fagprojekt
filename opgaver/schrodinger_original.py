@@ -6,8 +6,13 @@ from softadapt import *
 import numpy as np
 import scipy.io
 import os
+from IPython.display import HTML
+from matplotlib.animation import FuncAnimation
+from mpl_toolkits.mplot3d import Axes3D
+import surf2stl
 
-N = 50
+
+N = 30
 
 # Define boundary conditions
 t0 = 0.0
@@ -65,7 +70,7 @@ model.apply(NeuralNetwork.init_weights)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-num_epochs = 7000
+num_epochs = 1000
 
 #setup for softadapt:
 
@@ -179,8 +184,39 @@ Exact_u = np.real(Exact)
 Exact_v = np.imag(Exact)
 Exact_h = np.sqrt(Exact_u**2 + Exact_v**2)
 
-
-plt.plot(X_vals, np.sqrt(u_pred[:,:,0]**2+u_pred[:,:,1]**2), label='Prediction for t=0.59')
+u_pred_abs = np.sqrt(u_pred[:,:,0]**2+u_pred[:,:,1]**2)
+plt.plot(X_vals, u_pred_abs, label='Prediction for t=0.59')
 plt.plot(x,Exact_h[:,100], 'b-', linewidth = 2, label = 'Exact')
 plt.tight_layout()
 plt.savefig("opgaver/_static/schrodinger_original.png")
+
+plt.clf()
+
+#Get data
+with torch.no_grad():
+    u_pred_timed = model(X_train, t_train).squeeze(-1).numpy()
+u_pred_timed_abs = np.sqrt(u_pred_timed[:,:,0]**2+u_pred_timed[:,:,1]**2)
+fig, ax = plt.subplots()
+line, = ax.plot(X_train.detach().numpy()[0],u_pred_timed_abs[0,:])
+ax.set_xlim(-5,5)
+
+def run(frame):
+    line.set_ydata(u_pred_timed_abs[frame,:])
+    return line,
+
+ani = FuncAnimation(fig, run,frames = range(30),blit=True,interval = 50)
+ani.save('opgaver/gifs/schrodinger.gif',writer = 'imagemagick',fps = 30)
+
+plt.clf()
+# Create a figure and a 3D subplot
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+X_train = X_train.squeeze(-1).detach().numpy()
+t_train = t_train.squeeze(-1).detach().numpy()
+surf = ax.plot_surface(X_train, t_train, u_pred_timed_abs, cmap='viridis')
+# Add a color bar which maps values to colors
+fig.colorbar(surf)
+surf2stl.write('opgaver/gifs/schrodinger_3d.stl', X_train, t_train, u_pred_timed_abs)
+
+# Show the plot
+plt.show()
