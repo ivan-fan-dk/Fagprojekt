@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from softadapt import *
 import numpy as np
 
-N = 30
+N = 50
 
 # Define boundary conditions
 t0 = 0.0
@@ -65,7 +65,7 @@ model.apply(NeuralNetwork.init_weights)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-num_epochs = 5000
+num_epochs = 7000
 
 #setup for softadapt:
 
