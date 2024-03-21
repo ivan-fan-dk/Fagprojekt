@@ -20,7 +20,8 @@ t_max = 10
 # Generate training data
 t_range = torch.linspace(t0, t_max, steps=N, requires_grad=True)  
 grid_T = t_range.unsqueeze(1)
-
+print(grid_T)
+quit()
 
 class NeuralNetwork(nn.Module):
 

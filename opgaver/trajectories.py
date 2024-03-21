@@ -13,14 +13,52 @@ N = 100
 t0 = 0
 x0 = 0
 v0 = 10
-t_max = 10
+t_max = 0.5
 g = 9.82
 
 # Generate training data
-t_range = torch.linspace(x0, t_max, steps=N, requires_grad=True)  
-grid_T = t_range.unsqueeze(1)
+
+####### True values
+
+def theoretical_motion(input, g):
+    """
+    Compute the theoretical projectile motion.
+
+    Args:
+        input: ndarray with shape (num_samples, 3) for t, v0_x, v0_z
+        g: gravity acceleration
+
+    Returns:
+        theoretical motion of x, z.
+    """
+    t, v0_x, v0_z = np.split(input, 3, axis=-1)
+    x = v0_x * t
+    z = v0_z * t - 0.5 * g * t * t
+    return x, z
+
+g = 1
+
+t_range = torch.linspace(x0, t_max, N).reshape((N, 1))
+v0 = 0.5 * torch.ones((N, 2))
+grid_T = torch.concatenate([t_range, v0], axis=-1)
+print(theoretical_motion(grid_T,g)[0][0:10])
 
 
+# t_range = torch.linspace(2, t_max, steps=N, requires_grad=True)  
+# grid_T = t_range.unsqueeze(1)
+
+# Plotting predictions
+
+plt.plot(*theoretical_motion(grid_T, g), label='theory', color='crimson')
+#plt.plot(t_range_np, y_values_rk[:,1].numpy(), label="Runge Kutta")
+plt.legend()
+plt.title("Test")
+filename = "i_plot_chris_test"
+plt.savefig(os.path.dirname(__file__) + f"/_static/{filename}")
+
+
+
+quit()
 class NeuralNetwork(nn.Module):
 
     def __init__(self):
@@ -119,32 +157,6 @@ with torch.no_grad():
 
 predictions_np = predictions.squeeze(-1).detach().numpy()  # Convert tensor to numpy array
 t_range_np = t_range.detach().numpy()  # Convert tensor to numpy array
-
-
-####### True values
-
-def theoretical_motion(input, g):
-    """
-    Compute the theoretical projectile motion.
-
-    Args:
-        input: ndarray with shape (num_samples, 3) for t, v0_x, v0_z
-        g: gravity acceleration
-
-    Returns:
-        theoretical motion of x, z.
-    """
-    t, v0_x, v0_z = np.split(input, 3, axis=-1)
-    x = v0_x * t
-    z = v0_z * t - 0.5 * g * t * t
-    return x, z
-
-g = 1
-num_test_samples = 100
-t = np.linspace(0, 1, num_test_samples).reshape((num_test_samples, 1))
-v0 = 0.5 * np.ones((num_test_samples, 2))
-x = np.concatenate([t, v0], axis=-1)
-plt.plot(*theoretical_motion(x, g), label='theory', color='crimson')
 
 
 
