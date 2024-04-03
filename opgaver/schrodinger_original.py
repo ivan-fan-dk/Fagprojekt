@@ -11,6 +11,9 @@ from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
 import surf2stl
 
+# Placeholder for MSE errors and number of parameters
+mse_errors = []
+param_counts = []
 
 N = 30
 
