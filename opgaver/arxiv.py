@@ -57,7 +57,7 @@ model.apply(NeuralNetwork.init_weights)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-num_epochs = 2000
+num_epochs = 1000
 
 #setup for softadapt:
 
@@ -124,7 +124,7 @@ print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
 with torch.no_grad():
     #for the 3d plot we import the matplotlib extension:
     from mpl_toolkits.mplot3d import Axes3D
-    u_pred = model(X_vals.view(-1,1,1), 0.5*torch.ones_like(X_vals).view(-1,1,1))
+    u_pred = model(X_vals.view(-1,1,1), 0.25*torch.ones_like(X_vals).view(-1,1,1))
     u_pred =  u_pred.squeeze(-1).numpy()
     X_vals = X_vals.squeeze(-1).numpy()
     t_vals = t_vals.squeeze(-1).numpy()
@@ -132,4 +132,4 @@ with torch.no_grad():
 
 plt.plot(X_vals, u_pred, label='Prediction for t=0.25')
 plt.tight_layout()
-plt.savefig("opgaver/_static/arxiv_plot.png")
+plt.savefig("/workspaces/Fagprojekt/opgaver/_static/i_plot_chris_test.png")
