@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 from softadapt import *
 import numpy as np
 from IPython.display import HTML
@@ -16,8 +17,8 @@ from time import process_time
 
 param_counts = []
 time_bucket = []
-n_hidden_units = 2**(np.arange(0,8))
-N = 50
+n_hidden_units = 2**(np.arange(0,7))
+N = 30
 num_epochs = 1000
 mse_errors = np.empty((len(n_hidden_units),num_epochs))
 time_p3_bucket = np.empty((len(n_hidden_units),num_epochs))
@@ -31,29 +32,48 @@ x_right = 5.
 X_vals = torch.linspace(x_left, x_right, N, requires_grad=True)
 t_vals = torch.linspace(t0, t_final, N, requires_grad=True)
 X_train, t_train = torch.meshgrid(X_vals, t_vals, indexing="xy")
+X_train = X_train.unsqueeze(-1)
+t_train = t_train.unsqueeze(-1)
 
 X_vals_ = X_vals.view(-1,1,1)
 t_vals_ = t_vals.view(-1,1,1)
-
-print(X_vals.view(-1,1,1).shape, torch.ones_like(X_vals).view(-1,1,1).shape)
 
 # Define functions h(x), u(x)
 phi = lambda x: 2/torch.cosh(x) # initial condition
 
 
 # Get analytical values here
-u_analytical_re = (u_exact(X_train.detach().numpy(),t_train.detach().numpy(),v=0,A=2,c=0,c1=1/2,c2=1,x0=0)).real
-u_analytical_im = (u_exact(X_train.detach().numpy(),t_train.detach().numpy(),v=0,A=2,c=0,c1=1/2,c2=1,x0=0)).imag
+v=0
+A=2
+c=0
+c1=1/2
+c2=1
+x0=0
+X_train_np = X_train.detach().numpy()
+t_train_np = t_train.detach().numpy()
+u_anal_full_re = (u_exact(X_train_np,t_train_np,v,A,c,c1,c2,x0)).real
+u_anal_full_im = (u_exact(X_train_np,t_train_np,v,A,c,c1,c2,x0)).imag
     #to simulate a complex output we make it spit out two things like this [real, imaginary]
 class NeuralNetwork(nn.Module):
 
     def __init__(self, num_node):
         super().__init__()
         
+        # self.fn_approx = nn.Sequential(
+        #     nn.Linear(2,num_node),
+        #     nn.ReLU(),
+        #     nn.Linear(num_node,num_node),
+        #     nn.ReLU(),
+        #     nn.Linear(num_node,2)
+        # )
         self.fn_approx = nn.Sequential(
-            nn.Linear(2,num_node),
-            nn.ReLU(),
-            nn.Linear(num_node,2)
+            nn.Linear(2,10),
+            nn.Tanh(),
+            nn.Linear(10,10),
+            nn.Tanh(),
+            nn.Linear(10,10),
+            nn.Tanh(),
+            nn.Linear(10,2)
         )
 
     @staticmethod
@@ -65,8 +85,8 @@ class NeuralNetwork(nn.Module):
     def forward(self, x, y):
         if x.dim() != y.dim():
             raise AssertionError(f"x and y must have the same number of dimensions, but got x.dim() == {x.dim()} and y.dim() == {y.dim()}")
-        x_combined = torch.stack((x, y), dim=x.dim())
-        logits = self.fn_approx(x_combined).squeeze()
+        x_combined = torch.cat((x, y),dim=2)
+        logits = self.fn_approx(x_combined)
         return logits
 
 for n in range(len(n_hidden_units)):       
@@ -96,17 +116,17 @@ for n in range(len(n_hidden_units)):
     tik = process_time()
     tik_p3 = process_time()
     for epoch in range(num_epochs):
-        # Forward pass
+            # Forward pass
         u_prediction = model(X_train, t_train)
 
-        u_real = u_prediction[:,:,0]
-        u_imag = u_prediction[:,:,1]
+        u_real = u_prediction[:,:,0].unsqueeze(-1)
+        u_imag = u_prediction[:,:,1].unsqueeze(-1)
 
         u_left = model(x_left*torch.ones_like(X_vals_),t_vals_)
         u_right = model(x_right*torch.ones_like(X_vals_),t_vals_)
         
-        u_ic_real = model(X_vals_, torch.zeros_like(t_vals_))[:,0]
-        u_ic_imag = model(X_vals_, torch.zeros_like(t_vals_))[:,1]
+        u_ic_real = model(X_vals_, torch.zeros_like(t_vals_))[:,:,0].unsqueeze(-1)
+        u_ic_imag = model(X_vals_, torch.zeros_like(t_vals_))[:,:,1].unsqueeze(-1) 
 
         # Compute the first derivatives
         du_dx_real = torch.autograd.grad(u_real, X_train, create_graph=True, grad_outputs=torch.ones_like(u_real))[0]
@@ -119,11 +139,11 @@ for n in range(len(n_hidden_units)):
         d2u_dx2_imag = torch.autograd.grad(du_dx_imag, X_train, create_graph=True, grad_outputs=torch.ones_like(u_imag))[0]
         
         
-        bound_left_real = du_dx_real[:,0]
-        bound_left_imag = du_dx_imag[:,0]
+        bound_left_real = du_dx_real[:,0,0].unsqueeze(-1)
+        bound_left_imag = du_dx_imag[:,0,0].unsqueeze(-1)
 
-        bound_right_real = du_dx_real[:,-1]
-        bound_right_imag = du_dx_imag[:,-1]
+        bound_right_real = du_dx_real[:,-1,0].unsqueeze(-1)
+        bound_right_imag = du_dx_imag[:,-1,0].unsqueeze(-1)
 
         # Compute the loss for the nonlinear schrodinger eq:
         loss_PDE_real = criterion(-du_dt_imag + 0.5 * d2u_dx2_real + (u_real**2 + u_imag**2) * u_real, torch.zeros_like(u_real))
@@ -173,8 +193,8 @@ for n in range(len(n_hidden_units)):
             print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}', end='\r')
         with torch.no_grad():
             u_pred_new = model(X_train,t_train).numpy()
-            u_diff_re = u_pred_new[:,:,0]-u_analytical_re
-            u_diff_im = u_pred_new[:,:,1]-u_analytical_im
+            u_diff_re = u_pred_new[:,:,0]-u_anal_full_re
+            u_diff_im = u_pred_new[:,:,1]-u_anal_full_im
             mse_errors[n,epoch]=(np.mean((u_diff_re**2+u_diff_im**2)))
     tok = process_time()
     time_bucket.append(tok-tik)
@@ -197,7 +217,7 @@ ax1.tick_params(labelsize=12)  # Adjust font size for ticks
 
 # Right subplot (Placeholder - you can replace this with your actual plotting code)
 # For demonstration, this will just plot a simple line - replace with your desired content
-ax2.plot(n_hidden_units, time_bucket, marker='o')  # Example plot
+ax2.plot(n_hidden_units, time_bucket, marker='o') 
 ax2.set_xlabel('Number of parameters', fontsize=14)
 ax2.set_ylabel('CPU-time', fontsize=14)
 ax2.set_title(f'Time complexity O(n)', fontsize=16)
@@ -208,6 +228,7 @@ for k in range(len(n_hidden_units)):
     ax3.plot(mse_errors[k,:],time_p3_bucket[k,:])
 ax3.set_xlabel('Error', fontsize=14)
 ax3.set_xscale('log')
+ax3.set_ylim(0,5)
 ax3.set_ylabel('CPU-time', fontsize=14)
 ax3.set_title(f'CPU time as a function of errors', fontsize=16)
 ax3.grid(True)
@@ -220,17 +241,40 @@ plt.savefig("opgaver/_static/Algoefficiency.svg", bbox_inches='tight')
 plt.clf()
 
 
-
-
-
-#Get data
+#Get data for next plot and gif
+t_fix = np.pi/2
+fixed_ts_torch = t_fix*torch.ones_like(X_vals_).detach()
+fixed_ts_np = t_fix*torch.ones_like(X_vals).detach()
 with torch.no_grad():
-    u_pred_timed = model(X_train, t_train).squeeze(-1).numpy()
-u_pred_timed_abs = np.sqrt(u_pred_timed[:,:,0]**2+u_pred_timed[:,:,1]**2)
-fig, ax = plt.subplots()
-line, = ax.plot(X_train.detach().numpy()[0],u_pred_timed_abs[0,:])
-ax.set_xlim(-5,5)
+    u_pred_full_re = model(X_train, t_train)[:,:,0].numpy()
+    u_pred_full_im = model(X_train, t_train)[:,:,1].numpy()
 
+    u_pred_fixed_t_re= model(X_vals_, fixed_ts_torch).squeeze()[:,0].numpy()
+    u_pred_fixed_t_im = model(X_vals_, fixed_ts_torch).squeeze()[:,1].numpy()
+
+
+#Plot comparison true vs predicted at t=pi/4
+#Get prediction at t=pi/4
+u_pred_fixed_t_abs = np.sqrt(u_pred_fixed_t_re**2+u_pred_fixed_t_im**2)
+# Get true value
+X_vals_np = X_vals.detach().numpy()
+u_anal_fixed_t_re = (u_exact(X_vals_np,fixed_ts_np.numpy(),v,A,c,c1,c2,x0)).real
+u_anal_fixed_t_im = (u_exact(X_vals_np,fixed_ts_np.numpy(),v,A,c,c1,c2,x0)).imag
+u_anal_fixed_t_abs = np.sqrt(u_anal_fixed_t_re**2+u_anal_fixed_t_im**2)
+
+
+plt.plot(X_vals_np,u_pred_fixed_t_abs, label='Prediction')
+plt.plot(X_vals_np, u_anal_fixed_t_abs, label='True value', linestyle='--', color='orange')
+plt.legend()
+plt.title(f'Prediction and True Value at t={np.round(t_fix,2)}') # Dynamically set the title
+plt.savefig("opgaver/_static/SchrodingerSimplePinnfixedTComp.svg", bbox_inches='tight')
+plt.clf()
+## Gif across time
+u_pred_timed_abs = np.sqrt(u_pred_full_re**2+u_pred_full_im**2)
+u_anal_timed_abs = np.sqrt(u_anal_full_re**2+u_anal_full_im**2)
+fig, ax = plt.subplots()
+line, = ax.plot(X_train_np[0],u_pred_timed_abs[0,:])
+ax.set_xlim(-5,5)
 def run(frame):
     line.set_ydata(u_pred_timed_abs[frame,:])
     return line,
@@ -242,12 +286,22 @@ plt.clf()
 # Create a figure and a 3D subplot
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-X_train = X_train.squeeze(-1).detach().numpy()
-t_train = t_train.squeeze(-1).detach().numpy()
-surf = ax.plot_surface(X_train, t_train, u_pred_timed_abs, cmap='viridis')
+
+norm_pred = colors.Normalize(vmin=np.min(u_pred_timed_abs), vmax=np.max(u_pred_timed_abs))
+norm_anal = colors.Normalize(vmin=np.min(u_anal_timed_abs), vmax=np.max(u_anal_timed_abs))
+
+surf_pred = ax.plot_surface(X_train_np, t_train_np, u_pred_timed_abs, cmap='viridis', norm=norm_pred)
+surf_anal = ax.plot_surface(X_train_np, t_train_np, u_anal_timed_abs, cmap='inferno', norm=norm_anal,alpha=0.5)
+
+cbar_anal = fig.colorbar(surf_anal, ax=ax, pad=0.1)
+cbar_anal.set_label('Analytical Values')
+
+# Adjust the position of the first color bar to make room for the second one if necessary
+cbar_pred = fig.colorbar(surf_pred, ax=ax, pad=0.2)
+cbar_pred.set_label('Predicted Values')
 # Add a color bar which maps values to colors
-fig.colorbar(surf)
-surf2stl.write('opgaver/gifs/schrodinger_3d.stl', X_train, t_train, u_pred_timed_abs)
+plt.savefig('opgaver/gifs/schrodinger_3d.svg')
+#surf2stl.write('opgaver/gifs/schrodinger_3d.stl', X_train_np, t_train_np, u_pred_timed_abs)
 
 # Show the plot
 plt.show()
