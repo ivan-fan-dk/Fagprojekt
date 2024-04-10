@@ -4,19 +4,23 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 from softadapt import *
 import numpy as np
-import scipy.io
-import os
 from IPython.display import HTML
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
 import surf2stl
+from opgaver.u_exact import u_exact
+from time import process_time
+
 
 # Placeholder for MSE errors and number of parameters
-mse_errors = []
-param_counts = []
-n_hidden_units = [1,5,10,20]
-N = 30
 
+param_counts = []
+time_bucket = []
+n_hidden_units = 2**(np.arange(0,8))
+N = 50
+num_epochs = 1000
+mse_errors = np.empty((len(n_hidden_units),num_epochs))
+time_p3_bucket = np.empty((len(n_hidden_units),num_epochs))
 # Define boundary conditions
 t0 = 0.0
 t_final = torch.pi/2
@@ -27,50 +31,52 @@ x_right = 5.
 X_vals = torch.linspace(x_left, x_right, N, requires_grad=True)
 t_vals = torch.linspace(t0, t_final, N, requires_grad=True)
 X_train, t_train = torch.meshgrid(X_vals, t_vals, indexing="xy")
-X_train = X_train.unsqueeze(-1)
-t_train = t_train.unsqueeze(-1)
 
 X_vals_ = X_vals.view(-1,1,1)
 t_vals_ = t_vals.view(-1,1,1)
 
 print(X_vals.view(-1,1,1).shape, torch.ones_like(X_vals).view(-1,1,1).shape)
 
-
 # Define functions h(x), u(x)
-phi = lambda x: 2/torch.cosh(x)
+phi = lambda x: 2/torch.cosh(x) # initial condition
 
-for n in n_hidden_units:
+
+# Get analytical values here
+u_analytical_re = (u_exact(X_train.detach().numpy(),t_train.detach().numpy(),v=0,A=2,c=0,c1=1/2,c2=1,x0=0)).real
+u_analytical_im = (u_exact(X_train.detach().numpy(),t_train.detach().numpy(),v=0,A=2,c=0,c1=1/2,c2=1,x0=0)).imag
     #to simulate a complex output we make it spit out two things like this [real, imaginary]
-    class NeuralNetwork(nn.Module):
+class NeuralNetwork(nn.Module):
 
-        def __init__(self):
-            super().__init__()
-            
-            self.fn_approx = nn.Sequential(
-                nn.Linear(2,n),
-                nn.ReLU(),
-                nn.Linear(n,2)
-            )
-
-        @staticmethod
-        def init_weights(m):
-            if isinstance(m, nn.Linear):
-                torch.nn.init.xavier_uniform_(m.weight)
-                m.bias.data.fill_(0.01)
-
-        def forward(self, x, y):
-            x_combined = torch.cat((x, y),dim=2)
-            logits = self.fn_approx(x_combined)
-            return logits
-
+    def __init__(self, num_node):
+        super().__init__()
         
-    model = NeuralNetwork()
+        self.fn_approx = nn.Sequential(
+            nn.Linear(2,num_node),
+            nn.ReLU(),
+            nn.Linear(num_node,2)
+        )
+
+    @staticmethod
+    def init_weights(m):
+        if isinstance(m, nn.Linear):
+            torch.nn.init.xavier_uniform_(m.weight)
+            m.bias.data.fill_(0.01)
+
+    def forward(self, x, y):
+        if x.dim() != y.dim():
+            raise AssertionError(f"x and y must have the same number of dimensions, but got x.dim() == {x.dim()} and y.dim() == {y.dim()}")
+        x_combined = torch.stack((x, y), dim=x.dim())
+        logits = self.fn_approx(x_combined).squeeze()
+        return logits
+
+for n in range(len(n_hidden_units)):       
+    model = NeuralNetwork(num_node=n_hidden_units[n])
     model.apply(NeuralNetwork.init_weights)
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
     param_counts.append(param_count)    
-    num_epochs = 1000
+    
 
     #setup for softadapt:
 
@@ -87,19 +93,20 @@ for n in n_hidden_units:
 
     # Initializing adaptive weights to all ones.
     adapt_weights = torch.tensor([1,1,1,1])
-
+    tik = process_time()
+    tik_p3 = process_time()
     for epoch in range(num_epochs):
         # Forward pass
         u_prediction = model(X_train, t_train)
 
-        u_real = u_prediction[:,:,0].unsqueeze(-1)
-        u_imag = u_prediction[:,:,1].unsqueeze(-1)
+        u_real = u_prediction[:,:,0]
+        u_imag = u_prediction[:,:,1]
 
         u_left = model(x_left*torch.ones_like(X_vals_),t_vals_)
         u_right = model(x_right*torch.ones_like(X_vals_),t_vals_)
         
-        u_ic_real = model(X_vals_, torch.zeros_like(t_vals_))[:,:,0].unsqueeze(-1)
-        u_ic_imag = model(X_vals_, torch.zeros_like(t_vals_))[:,:,1].unsqueeze(-1) 
+        u_ic_real = model(X_vals_, torch.zeros_like(t_vals_))[:,0]
+        u_ic_imag = model(X_vals_, torch.zeros_like(t_vals_))[:,1]
 
         # Compute the first derivatives
         du_dx_real = torch.autograd.grad(u_real, X_train, create_graph=True, grad_outputs=torch.ones_like(u_real))[0]
@@ -112,11 +119,11 @@ for n in n_hidden_units:
         d2u_dx2_imag = torch.autograd.grad(du_dx_imag, X_train, create_graph=True, grad_outputs=torch.ones_like(u_imag))[0]
         
         
-        bound_left_real = du_dx_real[:,0,0].unsqueeze(-1)
-        bound_left_imag = du_dx_imag[:,0,0].unsqueeze(-1)
+        bound_left_real = du_dx_real[:,0]
+        bound_left_imag = du_dx_imag[:,0]
 
-        bound_right_real = du_dx_real[:,-1,0].unsqueeze(-1)
-        bound_right_imag = du_dx_imag[:,-1,0].unsqueeze(-1)
+        bound_right_real = du_dx_real[:,-1]
+        bound_right_imag = du_dx_imag[:,-1]
 
         # Compute the loss for the nonlinear schrodinger eq:
         loss_PDE_real = criterion(-du_dt_imag + 0.5 * d2u_dx2_real + (u_real**2 + u_imag**2) * u_real, torch.zeros_like(u_real))
@@ -160,40 +167,57 @@ for n in n_hidden_units:
 
         loss.backward()
         optimizer.step()
-
+        tok_p3 = process_time()
+        time_p3_bucket[n,epoch] = tok_p3-tik_p3
         if (epoch + 1) % 1 == 0:
             print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}', end='\r')
+        with torch.no_grad():
+            u_pred_new = model(X_train,t_train).numpy()
+            u_diff_re = u_pred_new[:,:,0]-u_analytical_re
+            u_diff_im = u_pred_new[:,:,1]-u_analytical_im
+            mse_errors[n,epoch]=(np.mean((u_diff_re**2+u_diff_im**2)))
+    tok = process_time()
+    time_bucket.append(tok-tik)
 
+    
     print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
+epoch_list = np.arange(0,num_epochs)
+fig, (ax1, ax2,ax3) = plt.subplots(1, 3, figsize=(14, 6))  # 1 row, 3 columns
 
-    with torch.no_grad():
-        #for the 3d plot we import the matplotlib extension:
-        from mpl_toolkits.mplot3d import Axes3D
-        u_pred = model(X_vals.view(-1,1,1), 0.79*torch.ones_like(X_vals).view(-1,1,1))
-        u_pred = u_pred.squeeze(-1).numpy()
-        X_vals = X_vals.squeeze(-1).numpy()
-        t_vals = t_vals.squeeze(-1).numpy()
+# Left subplot
+for k in range(len(n_hidden_units)):
+    ax1.plot(epoch_list, mse_errors[k, :], label=f'Error for {n_hidden_units[k]} hidden units')
 
-    # loadmat
-    data = scipy.io.loadmat(os.path.dirname(__file__) + '/_static/NLS.mat')
+ax1.set_xlabel('Epoch', fontsize=14)
+ax1.set_ylabel('MSE Error', fontsize=14)
+ax1.set_title('Error as a function of epochs', fontsize=16)
+#ax1.legend(title="Hidden Units", fontsize=12, title_fontsize=13)
+ax1.grid(True)
+ax1.tick_params(labelsize=12)  # Adjust font size for ticks
 
-    t = data['tt'].flatten()[:,None]
-    x = data['x'].flatten()[:,None]
-    Exact = data['uu']
-    Exact_u = np.real(Exact)
-    Exact_v = np.imag(Exact)
-    Exact_h = np.sqrt(Exact_u**2 + Exact_v**2)
+# Right subplot (Placeholder - you can replace this with your actual plotting code)
+# For demonstration, this will just plot a simple line - replace with your desired content
+ax2.plot(n_hidden_units, time_bucket, marker='o')  # Example plot
+ax2.set_xlabel('Number of parameters', fontsize=14)
+ax2.set_ylabel('CPU-time', fontsize=14)
+ax2.set_title(f'Time complexity O(n)', fontsize=16)
+ax2.grid(True)
+ax2.tick_params(labelsize=12)
 
-    u_pred_abs = np.sqrt(u_pred[:,:,0]**2+u_pred[:,:,1]**2)
-    mse_errors.append(sum((u_pred_abs-Exact_h[:,100])**2))
-    param_counts.append()
-plt.plot(X_vals, u_pred_abs, label='Prediction for t=0.59')
-plt.plot(x,Exact_h[:,100], 'b-', linewidth = 2, label = 'Exact')
-plt.tight_layout()
-plt.savefig("opgaver/_static/schrodinger_original.png")
-
+for k in range(len(n_hidden_units)):
+    ax3.plot(mse_errors[k,:],time_p3_bucket[k,:])
+ax3.set_xlabel('Error', fontsize=14)
+ax3.set_xscale('log')
+ax3.set_ylabel('CPU-time', fontsize=14)
+ax3.set_title(f'CPU time as a function of errors', fontsize=16)
+ax3.grid(True)
+ax3.tick_params(labelsize=12)
+# Position the legend centrally below the subplots
+handles, labels = ax1.get_legend_handles_labels()  # Get handles and labels for the legend
+fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.3), ncol=3, fontsize=12)
+plt.tight_layout(rect=[0, 0.3, 1, 0.95])
+plt.savefig("opgaver/_static/Algoefficiency.svg", bbox_inches='tight')
 plt.clf()
-
 
 
 
