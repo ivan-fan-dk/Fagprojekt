@@ -5,3 +5,13 @@ chris_test.ipynb
 opgaver/__pycache__
 .vscode
 test.py
+
+# Erik special
+bin/
+data/
+include/
+lib/
+lib64/
+pyvenv.cfg
+share/
+lib64
