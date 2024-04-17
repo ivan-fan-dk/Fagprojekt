@@ -1,4 +1,5 @@
 import torch
+from torch.utils.data import TensorDataset, DataLoader
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
@@ -17,9 +18,9 @@ from time import process_time
 
 param_counts = []
 time_bucket = []
-n_hidden_units = 2**(np.arange(0,7))
+n_hidden_units = [32]#2**(np.arange(0,7))
 N = 30
-num_epochs = 1000
+num_epochs = 100
 mse_errors = np.empty((len(n_hidden_units),num_epochs))
 time_p3_bucket = np.empty((len(n_hidden_units),num_epochs))
 # Define boundary conditions
@@ -51,8 +52,8 @@ c2=1
 x0=0
 X_train_np = X_train.detach().numpy()
 t_train_np = t_train.detach().numpy()
-u_anal_full_re = (u_exact(X_train_np,t_train_np,v,A,c,c1,c2,x0)).real
-u_anal_full_im = (u_exact(X_train_np,t_train_np,v,A,c,c1,c2,x0)).imag
+u_anal_full_re = (u_exact(X_train_np,t_train_np,v,A,c,c1,c2,x0)).real.squeeze()
+u_anal_full_im = (u_exact(X_train_np,t_train_np,v,A,c,c1,c2,x0)).imag.squeeze()
     #to simulate a complex output we make it spit out two things like this [real, imaginary]
 class NeuralNetwork(nn.Module):
 
@@ -67,13 +68,13 @@ class NeuralNetwork(nn.Module):
         #     nn.Linear(num_node,2)
         # )
         self.fn_approx = nn.Sequential(
-            nn.Linear(2,10),
+            nn.Linear(2,num_node),
             nn.Tanh(),
-            nn.Linear(10,10),
+            nn.Linear(num_node,num_node),
             nn.Tanh(),
-            nn.Linear(10,10),
+            nn.Linear(num_node,num_node),
             nn.Tanh(),
-            nn.Linear(10,2)
+            nn.Linear(num_node,2)
         )
 
     @staticmethod
@@ -242,7 +243,7 @@ plt.clf()
 
 
 #Get data for next plot and gif
-t_fix = np.pi/2
+t_fix = np.pi/4
 fixed_ts_torch = t_fix*torch.ones_like(X_vals_).detach()
 fixed_ts_np = t_fix*torch.ones_like(X_vals).detach()
 with torch.no_grad():
@@ -271,13 +272,19 @@ plt.savefig("opgaver/_static/SchrodingerSimplePinnfixedTComp.svg", bbox_inches='
 plt.clf()
 ## Gif across time
 u_pred_timed_abs = np.sqrt(u_pred_full_re**2+u_pred_full_im**2)
-u_anal_timed_abs = np.sqrt(u_anal_full_re**2+u_anal_full_im**2)
+u_anal_timed_abs = np.sqrt(u_anal_full_re**2+u_anal_full_im**2).squeeze()
 fig, ax = plt.subplots()
-line, = ax.plot(X_train_np[0],u_pred_timed_abs[0,:])
+line_pred, = ax.plot(X_train_np[0],u_pred_timed_abs[0,:], label='Predicted')
+line_anal, = ax.plot(X_train_np[0], u_anal_timed_abs[0,:], label='Analytical', linestyle='--', color='orange')
 ax.set_xlim(-5,5)
+
 def run(frame):
-    line.set_ydata(u_pred_timed_abs[frame,:])
-    return line,
+    line_pred.set_ydata(u_pred_timed_abs[frame,:])
+    line_anal.set_ydata(u_anal_timed_abs[frame,:])
+    #ax.draw_artist(line_pred)
+    #ax.draw_artist(line_anal)
+    return [line_pred, line_anal]
+
 
 ani = FuncAnimation(fig, run,frames = range(30),blit=True,interval = 50)
 ani.save('opgaver/gifs/schrodinger.gif',writer = 'imagemagick',fps = 30)
@@ -290,8 +297,8 @@ ax = fig.add_subplot(111, projection='3d')
 norm_pred = colors.Normalize(vmin=np.min(u_pred_timed_abs), vmax=np.max(u_pred_timed_abs))
 norm_anal = colors.Normalize(vmin=np.min(u_anal_timed_abs), vmax=np.max(u_anal_timed_abs))
 
-surf_pred = ax.plot_surface(X_train_np, t_train_np, u_pred_timed_abs, cmap='viridis', norm=norm_pred)
-surf_anal = ax.plot_surface(X_train_np, t_train_np, u_anal_timed_abs, cmap='inferno', norm=norm_anal,alpha=0.5)
+surf_pred = ax.plot_surface(X_train_np.squeeze(), t_train_np.squeeze(), u_pred_timed_abs.squeeze(), cmap='viridis', norm=norm_pred)
+surf_anal = ax.plot_surface(X_train_np.squeeze(), t_train_np.squeeze(), u_anal_timed_abs.squeeze(), cmap='inferno', norm=norm_anal,alpha=0.5)
 
 cbar_anal = fig.colorbar(surf_anal, ax=ax, pad=0.1)
 cbar_anal.set_label('Analytical Values')
