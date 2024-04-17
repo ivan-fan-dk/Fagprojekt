@@ -18,8 +18,8 @@ from time import process_time
 
 param_counts = []
 time_bucket = []
-n_hidden_units = [32]#2**(np.arange(0,7))
-N = 30
+n_hidden_units = 2**(np.arange(0,9))
+N = 40
 num_epochs = 100
 mse_errors = np.empty((len(n_hidden_units),num_epochs))
 time_p3_bucket = np.empty((len(n_hidden_units),num_epochs))
@@ -97,7 +97,7 @@ for n in range(len(n_hidden_units)):
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
     param_counts.append(param_count)    
-    
+    print(param_counts)
 
     #setup for softadapt:
 
@@ -207,7 +207,7 @@ fig, (ax1, ax2,ax3) = plt.subplots(1, 3, figsize=(14, 6))  # 1 row, 3 columns
 
 # Left subplot
 for k in range(len(n_hidden_units)):
-    ax1.plot(epoch_list, mse_errors[k, :], label=f'Error for {n_hidden_units[k]} hidden units')
+    ax1.plot(epoch_list, mse_errors[k, :], label=f'Error for {param_counts[k]} hidden units')
 
 ax1.set_xlabel('Epoch', fontsize=14)
 ax1.set_ylabel('MSE Error', fontsize=14)
@@ -218,13 +218,14 @@ ax1.tick_params(labelsize=12)  # Adjust font size for ticks
 
 # Right subplot (Placeholder - you can replace this with your actual plotting code)
 # For demonstration, this will just plot a simple line - replace with your desired content
-ax2.plot(n_hidden_units, time_bucket, marker='o') 
+ax2.plot(param_counts, time_bucket, marker='o') 
 ax2.set_xlabel('Number of parameters', fontsize=14)
 ax2.set_ylabel('CPU-time', fontsize=14)
 ax2.set_title(f'Time complexity O(n)', fontsize=16)
 ax2.grid(True)
 ax2.tick_params(labelsize=12)
-
+print(param_counts)
+print(time_bucket)
 for k in range(len(n_hidden_units)):
     ax3.plot(mse_errors[k,:],time_p3_bucket[k,:])
 ax3.set_xlabel('Error', fontsize=14)
