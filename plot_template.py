@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+from matplotlib import animation
 from softadapt import *
 import numpy as np
 from IPython.display import HTML
@@ -229,8 +230,8 @@ print(time_bucket)
 for k in range(len(n_hidden_units)):
     ax3.plot(mse_errors[k,:],time_p3_bucket[k,:])
 ax3.set_xlabel('Error', fontsize=14)
-ax3.set_xscale('log')
-ax3.set_ylim(0,5)
+#ax3.set_xscale('log')
+ax3.set_ylim(0,1)
 ax3.set_ylabel('CPU-time', fontsize=14)
 ax3.set_title(f'CPU time as a function of errors', fontsize=16)
 ax3.grid(True)
@@ -274,20 +275,24 @@ plt.clf()
 ## Gif across time
 u_pred_timed_abs = np.sqrt(u_pred_full_re**2+u_pred_full_im**2)
 u_anal_timed_abs = np.sqrt(u_anal_full_re**2+u_anal_full_im**2).squeeze()
-fig, ax = plt.subplots()
-line_pred, = ax.plot(X_train_np[0],u_pred_timed_abs[0,:], label='Predicted')
-line_anal, = ax.plot(X_train_np[0], u_anal_timed_abs[0,:], label='Analytical', linestyle='--', color='orange')
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 5))
+#line_pred, = ax.plot(X_train_np[0],u_pred_timed_abs[0,:], label='Predicted', color = 'Blue')
+#line_anal, = ax.plot(X_train_np[0], u_anal_timed_abs[0,:], label='Analytical', linestyle='--', color='orange')
 ax.set_xlim(-5,5)
+# style for plotting line
+plt.style.use("ggplot")
 
 def run(frame):
-    line_pred.set_ydata(u_pred_timed_abs[frame,:])
-    line_anal.set_ydata(u_anal_timed_abs[frame,:])
+    ax.plot(X_train_np[frame],u_pred_timed_abs[frame,:], color = 'blue')
+    ax.plot(X_train_np[frame],u_anal_timed_abs[frame,:], color = 'orange')
+    #line_pred.set_ydata(u_pred_timed_abs[frame,:])
+    #line_anal.set_ydata(u_anal_timed_abs[frame,:])
     #ax.draw_artist(line_pred)
     #ax.draw_artist(line_anal)
-    return [line_pred, line_anal]
+    #return [line_pred, line_anal]
 
-
-ani = FuncAnimation(fig, run,frames = range(30),blit=True,interval = 50)
+#ani = FuncAnimation(fig, run, interval=30)
+ani = FuncAnimation(fig, run,frames = range(len(X_train_np[0][0])),interval = 50)
 ani.save('opgaver/gifs/schrodinger.gif',writer = 'imagemagick',fps = 30)
 
 plt.clf()

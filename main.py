@@ -236,8 +236,8 @@ print(time_bucket)
 for k in range(len(n_hidden_units)):
     ax3.plot(mse_errors[k,:],time_p3_bucket[k,:])
 ax3.set_xlabel('Error', fontsize=14)
-ax3.set_xscale('log')
-ax3.set_ylim(0,5)
+#ax3.set_xscale('log')
+ax3.set_ylim(0,1)
 ax3.set_ylabel('CPU-time', fontsize=14)
 ax3.set_title(f'CPU time as a function of errors', fontsize=16)
 ax3.grid(True)
@@ -290,7 +290,7 @@ ax.set_xlim(-5,5)
 def run(frame):
     line_pred.set_ydata(u_pred_timed_abs[frame,:])
     line_anal.set_ydata(u_anal_timed_abs[frame,:])
-    #ax.draw_artist(line_pred)
+    ax.plot(line_pred)
     #ax.draw_artist(line_anal)
     return [line_pred, line_anal]
 
