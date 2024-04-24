@@ -15,13 +15,13 @@ import surf2stl
 mse_errors = []
 param_counts = []
 
-N = 30
+N = 800
 
 # Define boundary conditions
 t0 = 0.0
 t_final = torch.pi/2
-x_left = -5.
-x_right = 5.
+x_left = -2.
+x_right = 2.
 
 # Create input data
 X_vals = torch.linspace(x_left, x_right, N, requires_grad=True)
@@ -39,7 +39,7 @@ print(X_vals.view(-1,1,1).shape, torch.ones_like(X_vals).view(-1,1,1).shape)
 # Define functions h(x), u(x)
 phi = lambda x: 2/torch.cosh(x)
 
-
+hidden_units = 2**6
 #to simulate a complex output we make it spit out two things like this [real, imaginary]
 class NeuralNetwork(nn.Module):
 
@@ -47,13 +47,13 @@ class NeuralNetwork(nn.Module):
         super().__init__()
         
         self.fn_approx = nn.Sequential(
-            nn.Linear(2,10),
+            nn.Linear(2,hidden_units),
             nn.Tanh(),
-            nn.Linear(10,10),
+            nn.Linear(hidden_units,hidden_units),
             nn.Tanh(),
-            nn.Linear(10,10),
+            nn.Linear(hidden_units,hidden_units),
             nn.Tanh(),
-            nn.Linear(10,2)
+            nn.Linear(hidden_units,2)
         )
 
     @staticmethod

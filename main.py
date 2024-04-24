@@ -6,35 +6,48 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from softadapt import *
 import numpy as np
+from pyDOE import lhs
 from IPython.display import HTML
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
+import scipy.io
+import os
 import surf2stl
 from opgaver.u_exact import u_exact
 from time import process_time
+def generate_lhs_samples(num_samples, x_range, t_range):
+    # Generate LHS matrix with 2 columns (one for each parameter)
+    LHS_matrix = lhs(2, samples=num_samples)
+    
+    # Scale the LHS samples to the range of x and t
+    x_samples = LHS_matrix[:, 0] * (x_range[1] - x_range[0]) + x_range[0]
+    t_samples = LHS_matrix[:, 1] * (t_range[1] - t_range[0]) + t_range[0]
+    
+    return torch.tensor(x_samples, dtype=torch.float32,requires_grad=True), torch.tensor(t_samples, dtype=torch.float32,requires_grad=True)
 
 
 # Placeholder for MSE errors and number of parameters
 
 param_counts = []
 time_bucket = []
-n_hidden_units = 2**(np.arange(0,9))
-N = 40
-num_epochs = 10
+n_hidden_units = [100]#2**(np.arange(0,9))
+N = 1000
+num_epochs = 50
 batch_size = 32
 mse_errors = np.empty((len(n_hidden_units),num_epochs))
 time_p3_bucket = np.empty((len(n_hidden_units),num_epochs))
 # Define boundary conditions
 t0 = 0.0
 t_final = torch.pi/2
-x_left = -5.
-x_right = 5.
-
+x_left = -1.
+x_right = 1.
+# Use LHS to generate samples
+X_samples, t_samples = generate_lhs_samples(N, (x_left, x_right), (t0, t_final))
 # Create input data
 X_vals = torch.linspace(x_left, x_right, N, requires_grad=True)
 t_vals = torch.linspace(t0, t_final, N, requires_grad=True)
 X_train_full, t_train_full = torch.meshgrid(X_vals, t_vals, indexing="xy")
-train_dataset = TensorDataset(X_train_full.flatten().unsqueeze(-1), t_train_full.flatten().unsqueeze(-1))  # Flatten grid and create dataset
+train_dataset = TensorDataset(X_samples.unsqueeze(-1), t_samples.unsqueeze(-1))  # Format for DataLoader
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)  # DataLoader for handling mini-batches
 
 X_train_full_np = X_train_full.detach().numpy()
@@ -50,26 +63,24 @@ phi = lambda x: 2/torch.cosh(x) # initial condition
 v=0
 A=2
 c=0
-c1=1/2
-c2=1
+c1=0.5
+c2=1.0
 x0=0
 u_anal_full_re = (u_exact(X_train_full_np,t_train_full_np,v,A,c,c1,c2,x0)).real.squeeze()
 u_anal_full_im = (u_exact(X_train_full_np,t_train_full_np,v,A,c,c1,c2,x0)).imag.squeeze()
+
 #to simulate a complex output we make it spit out two things like this [real, imaginary]
 class NeuralNetwork(nn.Module):
 
     def __init__(self, num_node):
         super().__init__()
-        
-        # self.fn_approx = nn.Sequential(
-        #     nn.Linear(2,num_node),
-        #     nn.ReLU(),
-        #     nn.Linear(num_node,num_node),
-        #     nn.ReLU(),
-        #     nn.Linear(num_node,2)
-        # )
+
         self.fn_approx = nn.Sequential(
             nn.Linear(2,num_node),
+            nn.Tanh(),
+            nn.Linear(num_node,num_node),
+            nn.Tanh(),
+            nn.Linear(num_node,num_node),
             nn.Tanh(),
             nn.Linear(num_node,num_node),
             nn.Tanh(),
@@ -98,14 +109,12 @@ for n in range(len(n_hidden_units)):
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
     param_counts.append(param_count)    
-    print(param_counts)
 
     #setup for softadapt:
 
-    softadapt_object = SoftAdapt(beta=0.1, accuracy_order=6)
+    softadapt_object = SoftAdapt()
 
-
-    epochs_to_make_updates = 5
+    epochs_to_make_updates = 1
 
     values_of_component_1 = []
     values_of_component_2 = []
@@ -118,17 +127,18 @@ for n in range(len(n_hidden_units)):
     tik = process_time()
     tik_p3 = process_time()
     for epoch in range(num_epochs):
+        i = 0
         for X_train, t_train in train_loader:
+            i+=1
                 # Forward pass
             X_train = X_train.unsqueeze(-1)
             t_train = t_train.unsqueeze(-1)
             u_prediction = model(X_train, t_train)
-
             u_real = u_prediction[:,:,0].unsqueeze(-1)
             u_imag = u_prediction[:,:,1].unsqueeze(-1)
 
-            u_left = model((x_left*torch.ones_like(t_vals_)),t_vals_)
-            u_right = model((x_right*torch.ones_like(X_vals_)),t_vals_)
+            u_left = model(x_left*torch.ones_like(X_vals_),t_vals_)
+            u_right = model(x_right*torch.ones_like(X_vals_),t_vals_)
             
             u_ic_real = model(X_vals_, torch.zeros_like(t_vals_))[:,:,0].unsqueeze(-1)
             u_ic_imag = model(X_vals_, torch.zeros_like(t_vals_))[:,:,1].unsqueeze(-1) 
@@ -144,11 +154,11 @@ for n in range(len(n_hidden_units)):
             d2u_dx2_imag = torch.autograd.grad(du_dx_imag, X_train, create_graph=True, grad_outputs=torch.ones_like(u_imag))[0]
             
             
-            bound_left_real = du_dx_real[0,0].unsqueeze(-1)
-            bound_left_imag = du_dx_imag[0,0].unsqueeze(-1)
+            bound_left_real = du_dx_real[:,0,0].unsqueeze(-1)
+            bound_left_imag = du_dx_imag[:,0,0].unsqueeze(-1)
 
-            bound_right_real = du_dx_real[-1,0].unsqueeze(-1)
-            bound_right_imag = du_dx_imag[-1,0].unsqueeze(-1)
+            bound_right_real = du_dx_real[:,-1,0].unsqueeze(-1)
+            bound_right_imag = du_dx_imag[:,-1,0].unsqueeze(-1)
 
             # Compute the loss for the nonlinear schrodinger eq:
             loss_PDE_real = criterion(-du_dt_imag + 0.5 * d2u_dx2_real + (u_real**2 + u_imag**2) * u_real, torch.zeros_like(u_real))
@@ -163,11 +173,6 @@ for n in range(len(n_hidden_units)):
 
             # Backward pass and optimization
             optimizer.zero_grad()
-            # Change 5: Update the loss function with the linear combination of all components.
-            loss = (adapt_weights[0] * loss_PDE + adapt_weights[1] * loss_boundary_1 + adapt_weights[2] * loss_boundary_2 + adapt_weights[3]*loss_IC)
-
-            loss.backward()
-            optimizer.step()
 
             #softadapt weights update stuff:
             values_of_component_1.append(loss_PDE)
@@ -176,22 +181,26 @@ for n in range(len(n_hidden_units)):
             values_of_component_4.append(loss_IC)
 
 
-        if epoch % epochs_to_make_updates == 0 and epoch != 0:
-            adapt_weights = softadapt_object.get_component_weights(
-            torch.tensor(values_of_component_1), 
-            torch.tensor(values_of_component_2), 
-            torch.tensor(values_of_component_3),
-            torch.tensor(values_of_component_4),
-            verbose=False,
-            )
-                                                                
-        
-            # Resetting the lists to start fresh (this part is optional)
-            values_of_component_1 = []
-            values_of_component_2 = []
-            values_of_component_3 = []
-            values_of_component_4 = []
+            if i % 2 == 0:
+                adapt_weights = softadapt_object.get_component_weights(
+                torch.tensor(values_of_component_1), 
+                torch.tensor(values_of_component_2), 
+                torch.tensor(values_of_component_3),
+                torch.tensor(values_of_component_4),
+                verbose=False,
+                )                                         
+            
+                # Resetting the lists to start fresh (this part is optional)
+                values_of_component_1 = []
+                values_of_component_2 = []
+                values_of_component_3 = []
+                values_of_component_4 = []
 
+            # Change 5: Update the loss function with the linear combination of all components.
+            loss = 1000*(adapt_weights[0] * loss_PDE + adapt_weights[1] * loss_boundary_1 + adapt_weights[2] * loss_boundary_2 + adapt_weights[3]*loss_IC)
+
+            loss.backward()
+            optimizer.step()
         
         tok_p3 = process_time()
         time_p3_bucket[n,epoch] = tok_p3-tik_p3
@@ -271,9 +280,21 @@ u_anal_fixed_t_re = (u_exact(X_vals_np,fixed_ts_np.numpy(),v,A,c,c1,c2,x0)).real
 u_anal_fixed_t_im = (u_exact(X_vals_np,fixed_ts_np.numpy(),v,A,c,c1,c2,x0)).imag
 u_anal_fixed_t_abs = np.sqrt(u_anal_fixed_t_re**2+u_anal_fixed_t_im**2)
 
+# loadmat
+data = scipy.io.loadmat(os.path.dirname(__file__) + '/opgaver/_static/NLS.mat')
+
+t = data['tt'].flatten()[:,None]
+x = data['x'].flatten()[:,None]
+Exact = data['uu']
+Exact_u = np.real(Exact)
+Exact_v = np.imag(Exact)
+Exact_h = np.sqrt(Exact_u**2 + Exact_v**2)
+
 
 plt.plot(X_vals_np,u_pred_fixed_t_abs, label='Prediction')
-plt.plot(X_vals_np, u_anal_fixed_t_abs, label='True value', linestyle='--', color='orange')
+plt.plot(x,Exact_h[:,100], 'b-', linewidth = 2, label = 'Exact')
+
+#plt.plot(X_vals_np, u_anal_fixed_t_abs, label='True value', linestyle='--', color='orange')
 plt.legend()
 plt.title(f'Prediction and True Value at t={np.round(t_fix,2)}') # Dynamically set the title
 plt.savefig("opgaver/_static/SchrodingerSimplePinnfixedTComp_minibatch.svg", bbox_inches='tight')
@@ -292,11 +313,11 @@ def run(frame):
     line_anal.set_ydata(u_anal_timed_abs[frame,:])
     ax.plot(line_pred)
     #ax.draw_artist(line_anal)
-    return [line_pred, line_anal]
+    return line_pred
 
 
-ani = FuncAnimation(fig, run,frames = range(X_train_full_np.shape[0]),blit=True,interval = 50)
-ani.save('opgaver/gifs/schrodinger_minibatch.gif',writer = 'imagemagick',fps = 30)
+#ani = FuncAnimation(fig, run,frames = range(X_train_full_np.shape[0]),blit=True,interval = 50)
+#ani.save('opgaver/gifs/schrodinger_minibatch.gif',writer = 'imagemagick',fps = 30)
 
 plt.clf()
 # Create a figure and a 3D subplot
