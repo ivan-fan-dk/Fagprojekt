@@ -9,19 +9,17 @@ import os
 from IPython.display import HTML
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
-import surf2stl
 
-# Placeholder for MSE errors and number of parameters
-mse_errors = []
-param_counts = []
 
-N = 800
+
+
+N = int(20_000**0.5)+50
 
 # Define boundary conditions
 t0 = 0.0
 t_final = torch.pi/2
-x_left = -2.
-x_right = 2.
+x_left = -5.
+x_right = 5.
 
 # Create input data
 X_vals = torch.linspace(x_left, x_right, N, requires_grad=True)
@@ -33,13 +31,13 @@ t_train = t_train.unsqueeze(-1)
 X_vals_ = X_vals.view(-1,1,1)
 t_vals_ = t_vals.view(-1,1,1)
 
-print(X_vals.view(-1,1,1).shape, torch.ones_like(X_vals).view(-1,1,1).shape)
+#print(X_vals.view(-1,1,1).shape, torch.ones_like(X_vals).view(-1,1,1).shape)
 
 
 # Define functions h(x), u(x)
 phi = lambda x: 2/torch.cosh(x)
 
-hidden_units = 2**6
+hidden_units = 2**7
 #to simulate a complex output we make it spit out two things like this [real, imaginary]
 class NeuralNetwork(nn.Module):
 
@@ -69,11 +67,11 @@ class NeuralNetwork(nn.Module):
 
     
 model = NeuralNetwork()
-model.apply(NeuralNetwork.init_weights)
+#model.apply(NeuralNetwork.init_weights)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-num_epochs = 1000
+num_epochs = 2_000
 
 #setup for softadapt:
 
@@ -86,10 +84,10 @@ values_of_component_1 = []
 values_of_component_2 = []
 values_of_component_3 = []
 values_of_component_4 = []
-
+values_of_component_5 = []
 
 # Initializing adaptive weights to all ones.
-adapt_weights = torch.tensor([1,1,1,1])
+adapt_weights = torch.tensor([1,1,1,1,1])
 
 for epoch in range(num_epochs):
     # Forward pass
@@ -124,7 +122,7 @@ for epoch in range(num_epochs):
     # Compute the loss for the nonlinear schrodinger eq:
     loss_PDE_real = criterion(-du_dt_imag + 0.5 * d2u_dx2_real + (u_real**2 + u_imag**2) * u_real, torch.zeros_like(u_real))
     loss_PDE_imag = criterion(du_dt_real + 0.5 * d2u_dx2_imag + (u_real**2 + u_imag**2) * u_imag, torch.zeros_like(u_imag))
-    loss_PDE = loss_PDE_real + loss_PDE_imag
+    #loss_PDE = loss_PDE_real + loss_PDE_imag
 
     loss_IC = criterion(u_ic_real, phi(X_vals_))+criterion(u_ic_imag, torch.zeros_like(X_vals_))
 
@@ -136,10 +134,11 @@ for epoch in range(num_epochs):
     optimizer.zero_grad()
 
     #softadapt weights update stuff:
-    values_of_component_1.append(loss_PDE)
-    values_of_component_2.append(loss_boundary_1)
-    values_of_component_3.append(loss_boundary_2)
-    values_of_component_4.append(loss_IC)
+    values_of_component_1.append(loss_PDE_real)
+    values_of_component_2.append(loss_PDE_imag)
+    values_of_component_3.append(loss_boundary_1)
+    values_of_component_4.append(loss_boundary_2)
+    values_of_component_5.append(loss_IC)
 
 
     if epoch % epochs_to_make_updates == 0 and epoch != 0:
@@ -148,6 +147,7 @@ for epoch in range(num_epochs):
         torch.tensor(values_of_component_2), 
         torch.tensor(values_of_component_3),
         torch.tensor(values_of_component_4),
+        torch.tensor(values_of_component_5),
         verbose=False,
         )
                                                             
@@ -157,9 +157,10 @@ for epoch in range(num_epochs):
         values_of_component_2 = []
         values_of_component_3 = []
         values_of_component_4 = []
+        values_of_component_5 = []
 
       # Change 5: Update the loss function with the linear combination of all components.
-    loss = 1000*(adapt_weights[0] * loss_PDE + adapt_weights[1] * loss_boundary_1 + adapt_weights[2] * loss_boundary_2 + adapt_weights[3]*loss_IC)
+    loss = 1000*(adapt_weights[0] * loss_PDE_real + adapt_weights[1] * loss_PDE_imag + adapt_weights[2] * loss_boundary_1 + adapt_weights[3] * loss_boundary_2 + adapt_weights[4]*loss_IC)
 
     loss.backward()
     optimizer.step()
@@ -167,7 +168,9 @@ for epoch in range(num_epochs):
     if (epoch + 1) % 1 == 0:
         print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}', end='\r')
 
-print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
+#print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
+
+
 
 with torch.no_grad():
     #for the 3d plot we import the matplotlib extension:
@@ -178,7 +181,7 @@ with torch.no_grad():
     t_vals = t_vals.squeeze(-1).numpy()
 
 # loadmat
-data = scipy.io.loadmat(os.path.dirname(__file__) + '/_static/NLS.mat')
+data = scipy.io.loadmat("NLS_data.mat")
 
 t = data['tt'].flatten()[:,None]
 x = data['x'].flatten()[:,None]
@@ -188,38 +191,12 @@ Exact_v = np.imag(Exact)
 Exact_h = np.sqrt(Exact_u**2 + Exact_v**2)
 
 u_pred_abs = np.sqrt(u_pred[:,:,0]**2+u_pred[:,:,1]**2)
-plt.plot(X_vals, u_pred_abs, label='Prediction for t=0.59')
+plt.plot(X_vals, u_pred_abs, label='Prediction for t=0.79')
 plt.plot(x,Exact_h[:,100], 'b-', linewidth = 2, label = 'Exact')
 plt.tight_layout()
-plt.savefig("opgaver/_static/schrodinger_original.png")
+plt.savefig("schrodinger_plot.png")
 
 plt.clf()
 
-#Get data
-with torch.no_grad():
-    u_pred_timed = model(X_train, t_train).squeeze(-1).numpy()
-u_pred_timed_abs = np.sqrt(u_pred_timed[:,:,0]**2+u_pred_timed[:,:,1]**2)
-fig, ax = plt.subplots()
-line, = ax.plot(X_train.detach().numpy()[0],u_pred_timed_abs[0,:])
-ax.set_xlim(-5,5)
-
-def run(frame):
-    line.set_ydata(u_pred_timed_abs[frame,:])
-    return line,
-
-ani = FuncAnimation(fig, run,frames = range(30),blit=True,interval = 50)
-ani.save('opgaver/gifs/schrodinger.gif',writer = 'imagemagick',fps = 30)
-
-plt.clf()
-# Create a figure and a 3D subplot
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-X_train = X_train.squeeze(-1).detach().numpy()
-t_train = t_train.squeeze(-1).detach().numpy()
-surf = ax.plot_surface(X_train, t_train, u_pred_timed_abs, cmap='viridis')
-# Add a color bar which maps values to colors
-fig.colorbar(surf)
-surf2stl.write('opgaver/gifs/schrodinger_3d.stl', X_train, t_train, u_pred_timed_abs)
-
-# Show the plot
-plt.show()
+#save the model:
+torch.save(model.state_dict(), "schrodinger_model.pth")

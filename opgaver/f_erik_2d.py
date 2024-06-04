@@ -165,4 +165,4 @@ ax.set_xlabel('X')
 ax.set_ylabel('Y')
 ax.set_zlabel('Predictions')
 
-plt.savefig("opgaver/_static/fuckayuuuhhhh)_plot.png")
+plt.savefig("opgaver/_static/erik2d_plot.png")
