@@ -9,13 +9,15 @@ import functions as fc
 u0 = 1.0
 t0 = 0.0
 lam_steps = 5
+
 lam_range = torch.linspace(-1, 1, steps=lam_steps, requires_grad=True)  # lambda in the range [-1, 1]
-t_range = torch.linspace(0, 2, steps=10, requires_grad=True)  # time in the range [0, 2]
+lam_range_test = torch.tensor([-0.75,-0.25,0.2,0.65,1.5])
+lam_steps_test = len(lam_range_test)
+t_range = torch.linspace(0, 2, steps=200, requires_grad=True)  # time in the range [0, 2]
 u = lambda t, lam: u0 * torch.exp(lam * t)
 
 # Generate training data
 T, LAM = torch.meshgrid(t_range, lam_range, indexing="xy")  # create a grid of (t, lambda)
-
 # y_train = u(T, LAM)  # compute the exact solution at each (t, lambda)
 
 # Define the neural network
@@ -24,11 +26,11 @@ class NeuralNetwork(nn.Module):
         super().__init__()
         
         self.fn_approx = nn.Sequential(
-            nn.Linear(2,8),
+            nn.Linear(2,32),
             nn.Tanh(),
-            nn.Linear(8,16),
-            nn.ReLU(),
-            nn.Linear(16,1)
+            nn.Linear(32,32),
+            nn.Tanh(),
+            nn.Linear(32,1)
         )
 
     def forward(self, x, y):
@@ -44,7 +46,7 @@ criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-6)
 
 # Training the model
-num_epochs = int(1e4)
+num_epochs = int(1e3)
 
 for epoch in range(num_epochs):
     # Forward pass
@@ -65,20 +67,34 @@ for epoch in range(num_epochs):
     optimizer.step()
 
     if (epoch + 1) % 1 == 0:
-        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}', end='\r')
-
+        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4e}', end='\r')
+print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4e}')
 torch.save(model, "opgaver/model_h")
 
+# Set global font sizes
+plt.rcParams.update({'font.size': 16})  # Increase the base font size
+
+# Alternatively, you can specify individual font sizes directly
+title_fontsize = 18
+label_fontsize = 16
+legend_fontsize = 14
+labels = [-0.75,-0.25,0.2,0.65,1.5]
+
 with torch.no_grad():
-    fig, axs = plt.subplots(1, lam_steps, sharey="row", figsize=(8*lam_steps, 8))
-    for i, lam in enumerate(lam_range):
+    fig, axs = plt.subplots(1, lam_steps_test, sharey="row", figsize=(8*lam_steps_test, 8))
+    for i, lam in enumerate(lam_range_test):
         predictions = model(t_range, lam*torch.ones_like(t_range))
 
-        axs[i].plot(t_range, u(t_range, lam), '-o',label="true value")
-        axs[i].plot(t_range, predictions.numpy(), '-o',label="predicted value")
-        axs[i].legend()
-        #axs[i].gca().set_ylim([-1,8])
-        axs[i].set_title(f"lambda = {lam}")
+        axs[i].plot(t_range, u(t_range, lam), '-o', label="true value")
+        axs[i].plot(t_range, predictions.numpy(), '--',linewidth=5, label="predicted value")
+        axs[i].legend(fontsize=legend_fontsize)
+        axs[i].set_title(f"lambda = {labels[i]}", fontsize=title_fontsize)
+        axs[i].tick_params(axis='both', which='major', labelsize=label_fontsize)  # Adjust tick label size
+
+
+   
     plt.tight_layout()
-    plt.savefig(f"opgaver/_static/h.png")    
+    plt.savefig(f"opgaver/_static/h.svg", bbox_inches='tight')
     plt.clf()
+
+ 

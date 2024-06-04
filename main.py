@@ -30,15 +30,15 @@ def generate_lhs_samples(num_samples, x_range, t_range):
 
 param_counts = []
 time_bucket = []
-n_hidden_units = [100]#2**(np.arange(0,9))
-N = 1000
-num_epochs = 50
+n_hidden_units = [2**6]#2**(np.arange(2,7))
+N = 2500
+num_epochs = 5
 batch_size = 32
 mse_errors = np.empty((len(n_hidden_units),num_epochs))
 time_p3_bucket = np.empty((len(n_hidden_units),num_epochs))
 # Define boundary conditions
 t0 = 0.0
-t_final = torch.pi/2
+t_final = torch.pi/4
 x_left = -1.
 x_right = 1.
 # Use LHS to generate samples
@@ -77,14 +77,6 @@ class NeuralNetwork(nn.Module):
 
         self.fn_approx = nn.Sequential(
             nn.Linear(2,num_node),
-            nn.Tanh(),
-            nn.Linear(num_node,num_node),
-            nn.Tanh(),
-            nn.Linear(num_node,num_node),
-            nn.Tanh(),
-            nn.Linear(num_node,num_node),
-            nn.Tanh(),
-            nn.Linear(num_node,num_node),
             nn.Tanh(),
             nn.Linear(num_node,2)
         )
@@ -189,7 +181,7 @@ for n in range(len(n_hidden_units)):
                 torch.tensor(values_of_component_4),
                 verbose=False,
                 )                                         
-            
+             
                 # Resetting the lists to start fresh (this part is optional)
                 values_of_component_1 = []
                 values_of_component_2 = []
@@ -197,7 +189,7 @@ for n in range(len(n_hidden_units)):
                 values_of_component_4 = []
 
             # Change 5: Update the loss function with the linear combination of all components.
-            loss = 1000*(adapt_weights[0] * loss_PDE + adapt_weights[1] * loss_boundary_1 + adapt_weights[2] * loss_boundary_2 + adapt_weights[3]*loss_IC)
+            loss = (adapt_weights[0] * loss_PDE + adapt_weights[1] * loss_boundary_1 + adapt_weights[2] * loss_boundary_2 + adapt_weights[3]*loss_IC)
 
             loss.backward()
             optimizer.step()
@@ -236,7 +228,7 @@ ax1.tick_params(labelsize=12)  # Adjust font size for ticks
 # For demonstration, this will just plot a simple line - replace with your desired content
 ax2.plot(param_counts, time_bucket, marker='o') 
 ax2.set_xlabel('Number of parameters', fontsize=14)
-ax2.set_ylabel('CPU-time', fontsize=14)
+ax2.set_ylabel('CPU-time(s)', fontsize=14)
 ax2.set_title(f'Time complexity O(n)', fontsize=16)
 ax2.grid(True)
 ax2.tick_params(labelsize=12)
@@ -246,7 +238,7 @@ for k in range(len(n_hidden_units)):
     ax3.plot(mse_errors[k,:],time_p3_bucket[k,:])
 ax3.set_xlabel('Error', fontsize=14)
 #ax3.set_xscale('log')
-ax3.set_ylim(0,1)
+ax3.set_ylim(0,4)
 ax3.set_ylabel('CPU-time', fontsize=14)
 ax3.set_title(f'CPU time as a function of errors', fontsize=16)
 ax3.grid(True)
