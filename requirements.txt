@@ -7,4 +7,4 @@ git+https://github.com/dr-aheydari/SoftAdapt.git
 importlib-metadata==6.7.0
 pandas == 1.3.5
 scipy==1.7.3
-#struct  
+IPython
