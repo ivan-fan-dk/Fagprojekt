@@ -13,7 +13,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 
-N = int(20_000**0.5)
+N = int(80)
 
 # Define boundary conditions
 t0 = 0.0
@@ -22,14 +22,14 @@ x_left = -5.
 x_right = 5.
 
 # Create input data
-c1 = torch.linspace(0.1,3, 10, requires_grad=True)
-c2 = torch.linspace(0.1,3, 10, requires_grad=True)
+c1 = torch.linspace(0.1,3, 6, requires_grad=True)
+c2 = torch.linspace(0.1,3, 6, requires_grad=True)
 #since B = sqrt((c2 * A**2) / (2c1)) we have to change init conds! (phi!)
 
 X_vals = torch.linspace(x_left, x_right, N, requires_grad=True)
 t_vals = torch.linspace(t0, t_final, N, requires_grad=True)
 X_train, t_train, c1_train, c2_train = torch.meshgrid(X_vals, t_vals, c1, c2, indexing="xy")
-
+print(X_train.shape)
 X_train = X_train.unsqueeze(-1)
 t_train = t_train.unsqueeze(-1)
 c1_train = c1_train.unsqueeze(-1)
@@ -81,7 +81,7 @@ criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 
-num_epochs = 200
+num_epochs = 2000
 
 #setup for softadapt:
 
@@ -239,7 +239,7 @@ def closure():
     loss.backward()
     return loss
 
-lbfgs = optim.LBFGS(model.parameters(), max_iter=200)
+lbfgs = optim.LBFGS(model.parameters(), max_iter=1000)
 lbfgs.step(closure)
 
 #plotting stuff:
