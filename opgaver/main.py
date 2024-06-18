@@ -247,7 +247,7 @@ ax3.tick_params(labelsize=12)
 handles, labels = ax1.get_legend_handles_labels()  # Get handles and labels for the legend
 fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.3), ncol=3, fontsize=12)
 plt.tight_layout(rect=[0, 0.3, 1, 0.95])
-plt.savefig("opgaver/_static/Algoefficiency_minibatch.svg", bbox_inches='tight')
+plt.savefig("_static/Algoefficiency_minibatch.svg", bbox_inches='tight')
 plt.clf()
 
 
@@ -273,7 +273,7 @@ u_anal_fixed_t_im = (u_exact(X_vals_np,fixed_ts_np.numpy(),v,A,c,c1,c2,x0)).imag
 u_anal_fixed_t_abs = np.sqrt(u_anal_fixed_t_re**2+u_anal_fixed_t_im**2)
 
 # loadmat
-data = scipy.io.loadmat(os.path.dirname(__file__) + '/opgaver/_static/NLS.mat')
+data = scipy.io.loadmat(os.path.dirname(__file__) + '_static/NLS.mat')
 
 t = data['tt'].flatten()[:,None]
 x = data['x'].flatten()[:,None]
@@ -289,7 +289,7 @@ plt.plot(x,Exact_h[:,100], 'b-', linewidth = 2, label = 'Exact')
 #plt.plot(X_vals_np, u_anal_fixed_t_abs, label='True value', linestyle='--', color='orange')
 plt.legend()
 plt.title(f'Prediction and True Value at t={np.round(t_fix,2)}') # Dynamically set the title
-plt.savefig("opgaver/_static/SchrodingerSimplePinnfixedTComp_minibatch.svg", bbox_inches='tight')
+plt.savefig("_static/SchrodingerSimplePinnfixedTComp_minibatch.svg", bbox_inches='tight')
 plt.clf()
 ## Gif across time
 u_pred_timed_abs = np.sqrt(u_pred_full_re**2+u_pred_full_im**2)
@@ -329,7 +329,7 @@ cbar_anal.set_label('Analytical Values')
 cbar_pred = fig.colorbar(surf_pred, ax=ax, pad=0.2)
 cbar_pred.set_label('Predicted Values')
 # Add a color bar which maps values to colors
-plt.savefig('opgaver/gifs/schrodinger_3d_minibatch.svg')
+plt.savefig('gifs/schrodinger_3d_minibatch.svg')
 #surf2stl.write('opgaver/gifs/schrodinger_3d.stl', X_train_np, t_train_np, u_pred_timed_abs)
 
 # Show the plot
