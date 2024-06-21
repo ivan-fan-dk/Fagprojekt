@@ -418,7 +418,7 @@ with torch.no_grad():
     plt.plot(list(np.arange(start=1,stop=num_epochs_adam+1)),loss_bucket_sobol, label = "Sobol")
     plt.yscale('log')
     plt.legend()  # Add this line to display the legend
-    plt.savefig("Adam_Sampling.png")
+    plt.savefig("Adam_Sampling.svg")
 quit()
 #save the model:
 torch.save(model.state_dict(), "schrodinger_model_simple.pth")

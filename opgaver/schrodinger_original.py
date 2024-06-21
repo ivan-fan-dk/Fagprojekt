@@ -10,25 +10,33 @@ from IPython.display import HTML
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.gridspec as gridspec
+import sys
+from pyDOE import lhs
+
 
 N = int(200)
-
+lambda_reg = 1e-4
 # Define boundary conditions
 t0 = 0.0
 t_final = torch.pi/2
 x_left = -5.
 x_right = 5.
 
-# Create input data
-X_vals = torch.linspace(x_left, x_right, N, requires_grad=True)
-t_vals = torch.linspace(t0, t_final, N, requires_grad=True)
+# Generate Latin Hypercube Samples
+lhs_samples = lhs(2, samples=N)
+X_vals = torch.tensor(lhs_samples[:, 0] * (x_right - x_left) + x_left, requires_grad=True)
+t_vals = torch.tensor(lhs_samples[:, 1] * (t_final - t0) + t0, requires_grad=True)
+
+# Normal sample method
+#X_vals = torch.linspace(x_left, x_right, N, requires_grad=True)
+#t_vals = torch.linspace(t0, t_final, N, requires_grad=True)
 X_train, t_train = torch.meshgrid(X_vals, t_vals, indexing="xy")
 X_train = X_train.unsqueeze(-1)
 t_train = t_train.unsqueeze(-1)
 
 X_vals_ = X_vals.view(-1,1,1)
 t_vals_ = t_vals.view(-1,1,1)
-
+loss_bucket = []
 #print(X_vals.view(-1,1,1).shape, torch.ones_like(X_vals).view(-1,1,1).shape)
 
 
@@ -65,7 +73,7 @@ class NeuralNetwork(nn.Module):
 model = NeuralNetwork()
 #model.apply(NeuralNetwork.init_weights)
 criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0005)
 
 #setup for softadapt:
 
@@ -83,7 +91,7 @@ values_of_component_5 = []
 # Initializing adaptive weights to all ones.
 adapt_weights = torch.tensor([1,1,1,1,1])
 
-num_epochs_adam = 1
+num_epochs_adam = 1000
 
 for epoch in range(num_epochs_adam):
     # Forward pass
@@ -157,16 +165,16 @@ for epoch in range(num_epochs_adam):
 
       # Change 5: Update the loss function with the linear combination of all components.
     loss = 1000*(adapt_weights[0] * loss_PDE_real + adapt_weights[1] * loss_PDE_imag + adapt_weights[2] * loss_boundary_1 + adapt_weights[3] * loss_boundary_2 + adapt_weights[4]*loss_IC)
-
+    
     loss.backward()
     optimizer.step()
-
+    loss_bucket.append(loss.item())
     if (epoch + 1) % 1 == 0:
         print(f'Epoch [{epoch+1}/{num_epochs_adam}], Loss: {loss.item():.4f}', end='\r')
 
 # Define a closure function to reevaluate the model and loss
 def closure():
-    lbfgs.zero_grad()
+    #lbfgs.zero_grad()
     u_prediction = model(X_train, t_train)
 
     u_real = u_prediction[:,:,0].unsqueeze(-1)
@@ -207,16 +215,25 @@ def closure():
     loss_boundary_1 = criterion(u_left, u_right)
 
     # ... rest of your forward pass code ...
-    loss = 1000*(loss_PDE_real + loss_PDE_imag + loss_boundary_1 + loss_boundary_2 + loss_IC)
+    loss = (loss_PDE_real + loss_PDE_imag + loss_boundary_1 + loss_boundary_2 + loss_IC)
+    # Compute the L2 penalty (weight decay)
+    l2_penalty = sum(param.pow(2).sum() for param in model.parameters())
+    
+    # Add the L2 penalty to the loss
+    loss += lambda_reg * l2_penalty
     print(f'Loss: {loss.item():.4f}', end='\r')
     loss.backward()
+    loss_bucket.append()
     return loss
 
-lbfgs = optim.LBFGS(model.parameters(), max_iter=1)
-lbfgs.step(closure)
-
+#lbfgs = optim.LBFGS(model.parameters(), max_iter=1)
+#lbfgs.step(closure)
+with torch.no_grad():
+    plt.plot(list(np.arange(start=1,stop=num_epochs_adam+1)),loss_bucket)
+    plt.savefig("AdamEpochs_Loss.png")
+quit()
 #save the model:
-torch.save(model.state_dict(), "schrodinger_model.pth")
+torch.save(model.state_dict(), "schrodinger_model_simple.pth")
 
 
 

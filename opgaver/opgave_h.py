@@ -11,7 +11,7 @@ t0 = 0.0
 lam_steps = 5
 
 lam_range = torch.linspace(-1, 1, steps=lam_steps, requires_grad=True)  # lambda in the range [-1, 1]
-lam_range_test = torch.tensor([-0.75,-0.25,0.2,0.65,1.5])
+lam_range_test = torch.tensor([-0.75,0.65,1.5])
 lam_steps_test = len(lam_range_test)
 t_range = torch.linspace(0, 2, steps=200, requires_grad=True)  # time in the range [0, 2]
 u = lambda t, lam: u0 * torch.exp(lam * t)
@@ -46,7 +46,7 @@ criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-6)
 
 # Training the model
-num_epochs = int(1e3)
+num_epochs = int(1e4)
 
 for epoch in range(num_epochs):
     # Forward pass
@@ -78,7 +78,7 @@ plt.rcParams.update({'font.size': 16})  # Increase the base font size
 title_fontsize = 18
 label_fontsize = 16
 legend_fontsize = 14
-labels = [-0.75,-0.25,0.2,0.65,1.5]
+labels = [-0.75,0.65,1.5]
 
 with torch.no_grad():
     fig, axs = plt.subplots(1, lam_steps_test, sharey="row", figsize=(8*lam_steps_test, 8))
